@@ -1,0 +1,4 @@
+cd ai-code-assistant/server; npm run dev
+taskkill /F /IM node.exe
+cd ai-code-assistant/server; npm run dev
+cd ai-code-assistant/client; npm start

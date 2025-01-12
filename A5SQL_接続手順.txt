@@ -1,0 +1,51 @@
+# A5SQLでのデータベース接続手順
+
+## データベースファイルの場所
+データベースファイルは以下の場所にあります：
+C:/Apps/Develop_AI/ai-code-assistant/server/data/database.sqlite
+
+## A5SQLでの接続手順
+
+1. A5SQLを起動します。
+
+2. 「ファイル」→「接続」を選択します。
+
+3. 「新規接続」ウィンドウで以下の設定を行います：
+   - 「データベースの種類」で「SQLite3」を選択
+   - 「データベースファイル」に上記のパスを入力
+   - 「文字コード」は「UTF-8」を選択
+
+4. 「接続テスト」ボタンをクリックして接続を確認します。
+
+5. 「OK」をクリックして接続を確立します。
+
+## データベース構造
+
+テーブル一覧：
+1. users
+   - id: TEXT PRIMARY KEY
+   - email: TEXT UNIQUE NOT NULL
+   - password_hash: TEXT NOT NULL
+   - is_admin: BOOLEAN DEFAULT 0
+   - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+   - updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+
+2. chat_logs
+   - id: TEXT PRIMARY KEY
+   - user_id: TEXT NOT NULL
+   - message: TEXT NOT NULL
+   - response: TEXT NOT NULL
+   - timestamp: DATETIME DEFAULT CURRENT_TIMESTAMP
+   - FOREIGN KEY (user_id) REFERENCES users (id)
+
+3. llm_settings
+   - id: TEXT PRIMARY KEY
+   - api_key: TEXT NOT NULL
+   - model: TEXT NOT NULL
+   - created_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+   - updated_at: DATETIME DEFAULT CURRENT_TIMESTAMP
+
+## 注意事項
+- データベースファイルにアクセスする前に、サーバーアプリケーションを停止することをお勧めします
+- データベースの変更は慎重に行ってください
+- 重要なデータはバックアップを取ることをお勧めします

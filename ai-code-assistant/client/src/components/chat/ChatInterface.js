@@ -160,7 +160,7 @@ const ChatInterface = () => {
               <div
                 className={`max-w-[70%] rounded-lg p-4 shadow-sm ${
                   message.type === 'user'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-primary-100 text-primary-900 border border-primary-200'
                     : message.type === 'error'
                     ? 'bg-red-100 text-red-700'
                     : 'bg-white text-gray-800'
@@ -170,7 +170,7 @@ const ChatInterface = () => {
                 <div
                   className={`text-xs mt-2 ${
                     message.type === 'user'
-                      ? 'text-blue-100'
+                      ? 'text-primary-600'
                       : message.type === 'error'
                       ? 'text-red-500'
                       : 'text-gray-500'
@@ -186,9 +186,9 @@ const ChatInterface = () => {
           <div className="flex justify-start mt-4">
             <div className="bg-white rounded-lg p-4 shadow-sm">
               <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce delay-100" />
-                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce delay-200" />
+                <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce" />
+                <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce delay-100" />
+                <div className="w-2 h-2 bg-primary-600 rounded-full animate-bounce delay-200" />
               </div>
             </div>
           </div>
@@ -203,13 +203,13 @@ const ChatInterface = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="メッセージを入力してください..."
-              className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+              className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
               disabled={isLoading || !isAuthenticated}
             />
             <button
               type="submit"
               disabled={isLoading || !isAuthenticated || !input.trim()}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-200"
+              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 transition-colors duration-200"
             >
               送信
             </button>

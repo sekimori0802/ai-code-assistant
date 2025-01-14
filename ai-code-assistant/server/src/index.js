@@ -13,9 +13,9 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // ミドルウェアの設定
+// CORSの設定
 app.use(cors({
-  origin: 'http://localhost:3000',
-  credentials: true,
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));

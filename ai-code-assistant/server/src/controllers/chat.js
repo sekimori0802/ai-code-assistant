@@ -23,6 +23,7 @@ const SYSTEM_PROMPT = `あなたはAIプログラミングアシスタントで�
 const sendMessage = async (req, res) => {
   const { message } = req.body;
   const userId = req.user.id;
+  const defaultRoomId = '00000000-0000-0000-0000-000000000000';
 
   console.log('メッセージ送信リクエスト:', {
     userId,
@@ -32,6 +33,19 @@ const sendMessage = async (req, res) => {
 
   try {
     await db.beginTransactionAsync();
+
+    // ユーザーがデフォルトルームのメンバーでない場合は追加
+    const membership = await db.getAsync(
+      'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
+      [defaultRoomId, userId]
+    );
+
+    if (!membership) {
+      await db.runAsync(
+        'INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+        [defaultRoomId, userId]
+      );
+    }
 
     // OpenAI APIを使用して応答を生成
     const completion = await openai.chat.completions.create({
@@ -47,38 +61,41 @@ const sendMessage = async (req, res) => {
     const response = completion.choices[0].message.content;
     const timestamp = new Date().toISOString();
 
-    // チャットログの保存
-    const chatId = uuidv4();
-    console.log('チャットログを保存:', {
-      chatId,
-      userId,
-      message,
-      response,
-      timestamp
-    });
-
+    // ユーザーのメッセージを保存
+    const userMessageId = uuidv4();
     await db.runAsync(
-      'INSERT INTO chat_logs (id, user_id, message, response, timestamp) VALUES (?, ?, ?, ?, ?)',
-      [chatId, userId, message, response, timestamp]
+      'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
+      [userMessageId, defaultRoomId, userId, message, timestamp]
     );
 
-    // 保存したメッセージを取得
-    const savedMessage = await db.getAsync(
-      'SELECT * FROM chat_logs WHERE id = ?',
-      [chatId]
+    // AIの応答を保存
+    const aiMessageId = uuidv4();
+    await db.runAsync(
+      'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
+      [aiMessageId, defaultRoomId, 'system', response, timestamp]
     );
 
-    console.log('保存されたメッセージ:', savedMessage);
+    // トークルームの更新日時を更新
+    await db.runAsync(
+      'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [defaultRoomId]
+    );
 
     await db.commitAsync();
 
     res.json({
       status: 'success',
       data: {
-        id: savedMessage.id,
-        message: savedMessage.message,
-        response: savedMessage.response,
-        timestamp: savedMessage.timestamp
+        userMessage: {
+          id: userMessageId,
+          message: message,
+          timestamp: timestamp
+        },
+        aiResponse: {
+          id: aiMessageId,
+          message: response,
+          timestamp: timestamp
+        }
       }
     });
   } catch (error) {
@@ -94,6 +111,7 @@ const sendMessage = async (req, res) => {
 // チャット履歴の取得
 const getChatHistory = async (req, res) => {
   const userId = req.user.id;
+  const defaultRoomId = '00000000-0000-0000-0000-000000000000';
 
   console.log('チャット履歴取得リクエスト:', {
     userId,
@@ -101,21 +119,24 @@ const getChatHistory = async (req, res) => {
   });
 
   try {
-    // チャット履歴を取得（降順に変更）
-    const rows = await db.allAsync(
-      'SELECT * FROM chat_logs WHERE user_id = ? ORDER BY timestamp DESC',
-      [userId]
-    );
+    // デフォルトルームのメッセージを取得
+    const messages = await db.allAsync(`
+      SELECT m.*, u.email as user_email
+      FROM chat_room_messages m
+      LEFT JOIN users u ON m.user_id = u.id
+      WHERE m.room_id = ?
+      ORDER BY m.created_at DESC
+    `, [defaultRoomId]);
 
-    console.log('取得したチャット履歴:', rows);
+    console.log('取得したチャット履歴:', messages);
 
-    // 空の配列を返すように修正
-    const history = rows ? rows.map(row => ({
-      id: row.id,
-      message: row.message,
-      response: row.response,
-      timestamp: row.timestamp
-    })) : [];
+    const history = messages.map(msg => ({
+      id: msg.id,
+      user_id: msg.user_id,
+      user_email: msg.user_email || 'system',
+      message: msg.message,
+      created_at: msg.created_at
+    }));
 
     console.log('フォーマット済みチャット履歴:', history);
 
@@ -138,6 +159,7 @@ const getChatHistory = async (req, res) => {
 const deleteChatHistory = async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
+  const defaultRoomId = '00000000-0000-0000-0000-000000000000';
 
   console.log('チャット履歴削除リクエスト:', {
     messageId: id,
@@ -150,8 +172,8 @@ const deleteChatHistory = async (req, res) => {
 
     // メッセージの存在確認
     const message = await db.getAsync(
-      'SELECT * FROM chat_logs WHERE id = ? AND user_id = ?',
-      [id, userId]
+      'SELECT * FROM chat_room_messages WHERE id = ? AND room_id = ? AND user_id = ?',
+      [id, defaultRoomId, userId]
     );
 
     console.log('削除対象のメッセージ:', message);
@@ -166,8 +188,8 @@ const deleteChatHistory = async (req, res) => {
 
     // メッセージの削除
     await db.runAsync(
-      'DELETE FROM chat_logs WHERE id = ? AND user_id = ?',
-      [id, userId]
+      'DELETE FROM chat_room_messages WHERE id = ? AND room_id = ? AND user_id = ?',
+      [id, defaultRoomId, userId]
     );
 
     await db.commitAsync();

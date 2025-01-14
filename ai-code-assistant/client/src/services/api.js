@@ -76,8 +76,44 @@ export const auth = {
 
 // チャット関連のAPI
 export const chat = {
-  // AIとのチャット
-  sendMessage: (message, roomId) => apiClient.post('/api/chat/send', { message, roomId }),
+  // AIとのチャット（ストリーミング対応）
+  sendMessage: (message, roomId, onChunk) => {
+    return new Promise((resolve, reject) => {
+      const token = localStorage.getItem('token');
+      const eventSource = new EventSource(
+        `${API_URL}/api/chat/send?message=${encodeURIComponent(message)}&roomId=${encodeURIComponent(roomId)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          withCredentials: false
+        }
+      );
+
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.error) {
+          eventSource.close();
+          reject(new Error(data.error));
+          return;
+        }
+        onChunk(data);
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('EventSource error:', error);
+        eventSource.close();
+        reject(error);
+      };
+
+      // 完了時にEventSourceをクローズ
+      eventSource.addEventListener('complete', (event) => {
+        const data = JSON.parse(event.data);
+        eventSource.close();
+        resolve(data);
+      });
+    });
+  },
   getHistory: (roomId) => apiClient.get(`/api/chat/history?roomId=${roomId}`),
   deleteMessage: (id, roomId) => apiClient.delete(`/api/chat/history/${id}?roomId=${roomId}`),
   

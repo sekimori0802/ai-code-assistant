@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
@@ -14,8 +14,8 @@ const ChatRoom = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // メッセージ一覧の取得
-  const fetchMessages = async () => {
+  // メッセージ一覧の取得（メモ化）
+  const fetchMessages = useCallback(async () => {
     try {
       const response = await api.chatRoom.getMessages(roomId);
       setMessages(response.data.data.messages);
@@ -30,7 +30,7 @@ const ChatRoom = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [roomId, navigate]);
 
   // 定期的にメッセージを更新
   useEffect(() => {
@@ -38,7 +38,7 @@ const ChatRoom = () => {
     const interval = setInterval(fetchMessages, 5000); // 5秒ごとに更新
 
     return () => clearInterval(interval);
-  }, [roomId]);
+  }, [roomId, fetchMessages]);
 
   // 新しいメッセージが追加されたら自動スクロール
   useEffect(() => {

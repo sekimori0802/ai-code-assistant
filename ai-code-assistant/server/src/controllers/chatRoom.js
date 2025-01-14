@@ -2,7 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
 
 // トークルームの作成
-const createChatRoom = async (req, res) => {
+async function createChatRoom(req, res) {
   const { name } = req.body;
   const userId = req.user.id;
 
@@ -56,7 +56,7 @@ const createChatRoom = async (req, res) => {
 };
 
 // トークルーム一覧の取得
-const getChatRooms = async (req, res) => {
+async function getChatRooms(req, res) {
   const userId = req.user.id;
 
   console.log('トークルーム一覧取得リクエスト:', {
@@ -102,7 +102,7 @@ const getChatRooms = async (req, res) => {
 };
 
 // トークルームへのメンバー追加
-const addMember = async (req, res) => {
+async function addMember(req, res) {
   const { roomId, userId: newMemberId } = req.body;
   const requesterId = req.user.id;
 
@@ -167,7 +167,7 @@ const addMember = async (req, res) => {
 };
 
 // トークルーム内のメッセージ送信
-const sendMessage = async (req, res) => {
+async function sendMessage(req, res) {
   const { roomId, message } = req.body;
   const userId = req.user.id;
 
@@ -237,7 +237,7 @@ const sendMessage = async (req, res) => {
 };
 
 // トークルーム内のメッセージ一覧取得
-const getMessages = async (req, res) => {
+async function getMessages(req, res) {
   const { roomId } = req.params;
   const userId = req.user.id;
 

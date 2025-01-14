@@ -36,15 +36,41 @@ app.use((err, req, res, next) => {
   });
 });
 
+// データベースの初期化
+async function initializeDatabase() {
+  try {
+    // データベースの状態を確認
+    await db.logState();
+
+    // デフォルトルームの作成を確認
+    const defaultRoom = await db.getAsync(
+      'SELECT * FROM chat_rooms WHERE id = ?',
+      ['00000000-0000-0000-0000-000000000000']
+    );
+
+    if (!defaultRoom) {
+      await db.runAsync(`
+        INSERT INTO chat_rooms (id, name, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `, ['00000000-0000-0000-0000-000000000000', 'General', 'system']);
+      console.log('デフォルトルームを作成しました');
+    }
+
+    console.log('データベースの初期化が完了しました');
+  } catch (error) {
+    console.error('データベースの初期化に失敗:', error);
+    throw error;
+  }
+}
+
 // サーバーの起動
 app.listen(port, async () => {
   console.log(`サーバーがポート${port}で起動しました`);
   console.log('環境:', process.env.NODE_ENV || 'development');
 
   try {
-    // データベースの状態を確認
-    await db.logState();
+    await initializeDatabase();
   } catch (error) {
-    console.error('データベース状態の確認に失敗:', error);
+    console.error('サーバーの初期化に失敗:', error);
   }
 });

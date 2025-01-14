@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
 // APIクライアントの作成
 const apiClient = axios.create({
@@ -76,9 +76,17 @@ export const auth = {
 
 // チャット関連のAPI
 export const chat = {
-  sendMessage: (message) => apiClient.post('/api/chat/send', { message }),
-  getHistory: () => apiClient.get('/api/chat/history'),
-  deleteMessage: (id) => apiClient.delete(`/api/chat/history/${id}`),
+  // AIとのチャット
+  sendMessage: (message, roomId) => apiClient.post('/api/chat/send', { message, roomId }),
+  getHistory: (roomId) => apiClient.get(`/api/chat/history?roomId=${roomId}`),
+  deleteMessage: (id, roomId) => apiClient.delete(`/api/chat/history/${id}?roomId=${roomId}`),
+  
+  // チャットルーム管理
+  createRoom: (name) => apiClient.post('/api/chat/rooms', { name }),
+  getRooms: () => apiClient.get('/api/chat/rooms'),
+  getRoom: (roomId) => apiClient.get(`/api/chat/rooms/${roomId}`),
+  updateRoom: (roomId, data) => apiClient.put(`/api/chat/rooms/${roomId}`, data),
+  deleteRoom: (roomId) => apiClient.delete(`/api/chat/rooms/${roomId}`),
 };
 
 // 管理者用API
@@ -91,21 +99,11 @@ export const admin = {
   getChatLogs: () => apiClient.get('/api/admin/chat-logs'),
 };
 
-// トークルーム関連のAPI
-export const chatRoom = {
-  create: (name) => apiClient.post('/api/chat-rooms', { name }),
-  getAll: () => apiClient.get('/api/chat-rooms'),
-  addMember: (roomId, userId) => apiClient.post('/api/chat-rooms/member', { roomId, userId }),
-  sendMessage: (roomId, message) => apiClient.post('/api/chat-rooms/message', { roomId, message }),
-  getMessages: (roomId) => apiClient.get(`/api/chat-rooms/${roomId}/messages`),
-};
-
 // APIクライアントのエクスポート
 const api = {
   auth,
   chat,
-  admin,
-  chatRoom
+  admin
 };
 
 export default api;

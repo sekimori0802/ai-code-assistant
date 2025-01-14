@@ -3,7 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 import MessageContent from './MessageContent';
 
-const ChatInterface = () => {
+const ChatInterface = ({ roomId }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -16,8 +16,8 @@ const ChatInterface = () => {
   };
 
   const loadChatHistory = useCallback(async () => {
-    if (!isAuthenticated || !user) {
-      console.log('認証状態:', { isAuthenticated, user });
+    if (!isAuthenticated || !user || !roomId) {
+      console.log('認証状態:', { isAuthenticated, user, roomId });
       return;
     }
 
@@ -25,25 +25,18 @@ const ChatInterface = () => {
       setError('');
       setIsLoading(true);
       console.log('チャット履歴を取得中...');
-      const response = await api.chat.getHistory();
+      const response = await api.chat.getHistory(roomId);
       console.log('サーバーレスポンス:', response);
       
       if (response?.data?.status === 'success' && Array.isArray(response.data.data?.history)) {
         console.log('チャット履歴:', response.data.data.history);
-        const formattedHistory = response.data.data.history
-          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-          .flatMap(item => [
-            {
-              type: 'user',
-              content: item.message,
-              timestamp: item.timestamp,
-            },
-            {
-              type: 'ai',
-              content: item.response,
-              timestamp: item.timestamp,
-            }
-          ]);
+        const formattedHistory = response.data.data.history.map(item => ({
+          type: item.user_id === 'system' ? 'ai' : 'user',
+          content: item.message,
+          timestamp: item.created_at,
+          userId: item.user_id,
+          userEmail: item.user_email
+        }));
         setMessages(formattedHistory);
       } else {
         console.log('チャット履歴が空または無効な形式');
@@ -60,17 +53,17 @@ const ChatInterface = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, roomId]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      console.log('認証状態が変更されたため、チャット履歴を再取得');
+    if (isAuthenticated && roomId) {
+      console.log('認証状態またはルームIDが変更されたため、チャット履歴を再取得');
       loadChatHistory();
     } else {
-      console.log('未認証のため、メッセージをクリア');
+      console.log('未認証またはルームIDが未設定のため、メッセージをクリア');
       setMessages([]);
     }
-  }, [isAuthenticated, loadChatHistory]);
+  }, [isAuthenticated, roomId, loadChatHistory]);
 
   useEffect(() => {
     scrollToBottom();
@@ -78,12 +71,14 @@ const ChatInterface = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!input.trim() || !isAuthenticated || !user) return;
+    if (!input.trim() || !isAuthenticated || !user || !roomId) return;
 
     const userMessage = {
       type: 'user',
       content: input.trim(),
       timestamp: new Date().toISOString(),
+      userId: user.id,
+      userEmail: user.email
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -92,17 +87,34 @@ const ChatInterface = () => {
     setError('');
 
     try {
-      console.log('メッセージを送信中:', userMessage);
-      const response = await api.chat.sendMessage(userMessage.content);
+      console.log('メッセージを送信中:', { message: userMessage.content, roomId });
+      const response = await api.chat.sendMessage(userMessage.content, roomId);
       console.log('送信レスポンス:', response);
 
       if (response?.data?.status === 'success' && response.data.data) {
-        const aiMessage = {
+        const { userMessage: savedUserMessage, aiResponse } = response.data.data;
+        
+        // ユーザーメッセージを更新
+        setMessages(prev => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = {
+            type: 'user',
+            content: savedUserMessage.message,
+            timestamp: savedUserMessage.timestamp,
+            userId: user.id,
+            userEmail: user.email
+          };
+          return newMessages;
+        });
+
+        // AIの応答を追加
+        setMessages(prev => [...prev, {
           type: 'ai',
-          content: response.data.data.response,
-          timestamp: response.data.data.timestamp || new Date().toISOString(),
-        };
-        setMessages(prev => [...prev, aiMessage]);
+          content: aiResponse.message,
+          timestamp: aiResponse.timestamp,
+          userId: 'system',
+          userEmail: 'System'
+        }]);
       } else {
         throw new Error('Invalid response format');
       }
@@ -130,6 +142,21 @@ const ChatInterface = () => {
           </div>
           <div className="text-sm text-gray-400">
             アカウントをお持ちでない場合は、新規登録してください。
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!roomId) {
+    return (
+      <div className="flex items-center justify-center h-full bg-gray-50">
+        <div className="text-center">
+          <div className="text-gray-500 mb-4">
+            チャットルームを選択してください。
+          </div>
+          <div className="text-sm text-gray-400">
+            または新しいチャットを開始してください。
           </div>
         </div>
       </div>
@@ -204,11 +231,11 @@ const ChatInterface = () => {
               onChange={(e) => setInput(e.target.value)}
               placeholder="メッセージを入力してください..."
               className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
-              disabled={isLoading || !isAuthenticated}
+              disabled={isLoading || !isAuthenticated || !roomId}
             />
             <button
               type="submit"
-              disabled={isLoading || !isAuthenticated || !input.trim()}
+              disabled={isLoading || !isAuthenticated || !roomId || !input.trim()}
               className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 transition-colors duration-200"
             >
               送信

@@ -16,6 +16,46 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
+// デフォルトルームの作成
+async function createDefaultRoom(db) {
+  try {
+    // デフォルトルームの存在確認
+    const defaultRoom = await db.getAsync(
+      'SELECT * FROM chat_rooms WHERE id = ?',
+      ['00000000-0000-0000-0000-000000000000']
+    );
+
+    if (!defaultRoom) {
+      // デフォルトルームを作成
+      await db.runAsync(
+        'INSERT INTO chat_rooms (id, name, created_by) VALUES (?, ?, ?)',
+        ['00000000-0000-0000-0000-000000000000', 'General', 'system']
+      );
+
+      // デフォルトメッセージを追加
+      const messageId = uuidv4();
+      await db.runAsync(
+        'INSERT INTO chat_room_messages (id, room_id, user_id, message) VALUES (?, ?, ?, ?)',
+        [messageId, '00000000-0000-0000-0000-000000000000', 'system', 'ようこそGeneralチャットルームへ！']
+      );
+
+      // 既存のユーザーをデフォルトルームのメンバーとして追加
+      const users = await db.allAsync('SELECT id FROM users', []);
+      for (const user of users) {
+        await db.runAsync(
+          'INSERT OR IGNORE INTO chat_room_members (room_id, user_id) VALUES (?, ?)',
+          ['00000000-0000-0000-0000-000000000000', user.id]
+        );
+      }
+
+      console.log('デフォルトルームを作成しました');
+    }
+  } catch (error) {
+    console.error('デフォルトルームの作成に失敗:', error);
+    throw error;
+  }
+}
+
 // データベース接続の初期化
 const db = new sqlite3.Database(dbPath, async (err) => {
   if (err) {
@@ -25,6 +65,7 @@ const db = new sqlite3.Database(dbPath, async (err) => {
     try {
       await initializeTables(db);
       await createDefaultAdmin(db);
+      await createDefaultRoom(db);
       await db.logState();
       console.log('データベーステーブルの初期化が完了しました');
     } catch (error) {
@@ -75,7 +116,7 @@ async function createDefaultAdmin(db) {
 // テーブルの初期化
 async function initializeTables(db) {
   return new Promise((resolve, reject) => {
-    db.serialize(() => {
+    db.serialize(async () => {
       // ユーザーテーブル
       db.run(`
         CREATE TABLE IF NOT EXISTS users (
@@ -107,8 +148,7 @@ async function initializeTables(db) {
           name TEXT NOT NULL,
           created_by TEXT NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `);
 
@@ -119,8 +159,7 @@ async function initializeTables(db) {
           user_id TEXT NOT NULL,
           joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (room_id, user_id),
-          FOREIGN KEY (room_id) REFERENCES chat_rooms (id) ON DELETE CASCADE,
-          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+          FOREIGN KEY (room_id) REFERENCES chat_rooms (id) ON DELETE CASCADE
         )
       `);
 
@@ -132,8 +171,7 @@ async function initializeTables(db) {
           user_id TEXT NOT NULL,
           message TEXT NOT NULL,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (room_id) REFERENCES chat_rooms (id) ON DELETE CASCADE,
-          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+          FOREIGN KEY (room_id) REFERENCES chat_rooms (id) ON DELETE CASCADE
         )
       `);
 
@@ -146,13 +184,10 @@ async function initializeTables(db) {
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-      `, (err) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      });
+      `);
+
+      // データベースの初期化を完了
+      resolve();
     });
   });
 }

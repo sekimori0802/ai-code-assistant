@@ -5,7 +5,7 @@ import api from '../../services/api';
 
 const ChatRoom = () => {
   const { roomId } = useParams();
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
 
@@ -79,12 +79,12 @@ const ChatRoom = () => {
             <div
               key={message.id}
               className={`flex ${
-                message.user_id === currentUser.id ? 'justify-end' : 'justify-start'
+                message.user_id === user.id ? 'justify-end' : 'justify-start'
               }`}
             >
               <div
                 className={`max-w-[70%] p-3 rounded-lg ${
-                  message.user_id === currentUser.id
+                  message.user_id === user.id
                     ? 'bg-blue-500 text-white'
                     : 'bg-gray-100'
                 }`}

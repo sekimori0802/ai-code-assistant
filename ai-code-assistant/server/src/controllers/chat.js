@@ -19,32 +19,301 @@ const SYSTEM_PROMPT = `あなたはAIプログラミングアシスタントで�
 
 応答は日本語で行い、コードブロックは\`\`\`言語名\nコード\`\`\`の形式で記述してください。`;
 
-// メッセージの送信
-const sendMessage = async (req, res) => {
-  const { message } = req.body;
+// チャットルームの作成
+const createRoom = async (req, res) => {
+  const { name } = req.body;
   const userId = req.user.id;
-  const defaultRoomId = '00000000-0000-0000-0000-000000000000';
-
-  console.log('メッセージ送信リクエスト:', {
-    userId,
-    message,
-    user: req.user
-  });
 
   try {
     await db.beginTransactionAsync();
 
-    // ユーザーがデフォルトルームのメンバーでない場合は追加
+    // チャットルームの作成
+    const roomId = uuidv4();
+    await db.runAsync(
+      'INSERT INTO chat_rooms (id, name, created_by, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+      [roomId, name, userId]
+    );
+
+    // 作成者をメンバーとして追加
+    await db.runAsync(
+      'INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+      [roomId, userId]
+    );
+
+    await db.commitAsync();
+
+    res.json({
+      status: 'success',
+      data: {
+        id: roomId,
+        name: name,
+        created_by: userId,
+        created_at: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    await db.rollbackAsync();
+    console.error('チャットルーム作成エラー:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'チャットルームの作成に失敗しました'
+    });
+  }
+};
+
+// チャットルーム一覧の取得
+const getRooms = async (req, res) => {
+  const userId = req.user.id;
+
+  try {
+    const rooms = await db.allAsync(`
+      SELECT 
+        r.*,
+        COUNT(DISTINCT m.user_id) as member_count,
+        (
+          SELECT message 
+          FROM chat_room_messages 
+          WHERE room_id = r.id 
+          ORDER BY created_at DESC 
+          LIMIT 1
+        ) as last_message
+      FROM chat_rooms r
+      LEFT JOIN chat_room_members m ON r.id = m.room_id
+      WHERE r.id IN (
+        SELECT room_id 
+        FROM chat_room_members 
+        WHERE user_id = ?
+      )
+      GROUP BY r.id
+      ORDER BY r.updated_at DESC
+    `, [userId]);
+
+    res.json({
+      status: 'success',
+      data: {
+        rooms: rooms.map(room => ({
+          id: room.id,
+          name: room.name,
+          created_by: room.created_by,
+          member_count: room.member_count,
+          last_message: room.last_message,
+          created_at: room.created_at,
+          updated_at: room.updated_at
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('チャットルーム一覧の取得エラー:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'チャットルーム一覧の取得に失敗しました'
+    });
+  }
+};
+
+// 特定のチャットルームの取得
+const getRoom = async (req, res) => {
+  const { roomId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // ユーザーがルームのメンバーであることを確認
     const membership = await db.getAsync(
       'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
-      [defaultRoomId, userId]
+      [roomId, userId]
     );
 
     if (!membership) {
-      await db.runAsync(
-        'INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-        [defaultRoomId, userId]
-      );
+      return res.status(403).json({
+        status: 'error',
+        message: 'チャットルームのメンバーではありません'
+      });
+    }
+
+    const room = await db.getAsync(`
+      SELECT 
+        r.*,
+        COUNT(DISTINCT m.user_id) as member_count,
+        (
+          SELECT message 
+          FROM chat_room_messages 
+          WHERE room_id = r.id 
+          ORDER BY created_at DESC 
+          LIMIT 1
+        ) as last_message
+      FROM chat_rooms r
+      LEFT JOIN chat_room_members m ON r.id = m.room_id
+      WHERE r.id = ?
+      GROUP BY r.id
+    `, [roomId]);
+
+    if (!room) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'チャットルームが見つかりません'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        id: room.id,
+        name: room.name,
+        created_by: room.created_by,
+        member_count: room.member_count,
+        last_message: room.last_message,
+        created_at: room.created_at,
+        updated_at: room.updated_at
+      }
+    });
+  } catch (error) {
+    console.error('チャットルーム取得エラー:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'チャットルームの取得に失敗しました'
+    });
+  }
+};
+
+// チャットルームの更新
+const updateRoom = async (req, res) => {
+  const { roomId } = req.params;
+  const { name } = req.body;
+  const userId = req.user.id;
+
+  try {
+    await db.beginTransactionAsync();
+
+    // ルームの存在確認とユーザーの権限確認
+    const room = await db.getAsync(
+      'SELECT * FROM chat_rooms WHERE id = ? AND created_by = ?',
+      [roomId, userId]
+    );
+
+    if (!room) {
+      await db.rollbackAsync();
+      return res.status(404).json({
+        status: 'error',
+        message: 'チャットルームが見つかないか、更新権限がありません'
+      });
+    }
+
+    // ルーム名の更新
+    await db.runAsync(
+      'UPDATE chat_rooms SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [name, roomId]
+    );
+
+    await db.commitAsync();
+
+    res.json({
+      status: 'success',
+      data: {
+        id: roomId,
+        name: name,
+        updated_at: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    await db.rollbackAsync();
+    console.error('チャットルーム更新エラー:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'チャットルームの更新に失敗しました'
+    });
+  }
+};
+
+// チャットルームの削除
+const deleteRoom = async (req, res) => {
+  const { roomId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    await db.beginTransactionAsync();
+
+    // ルームの存在確認とユーザーの権限確認
+    const room = await db.getAsync(
+      'SELECT * FROM chat_rooms WHERE id = ? AND created_by = ?',
+      [roomId, userId]
+    );
+
+    if (!room) {
+      await db.rollbackAsync();
+      return res.status(404).json({
+        status: 'error',
+        message: 'チャットルームが見つかないか、削除権限がありません'
+      });
+    }
+
+    // メッセージの削除
+    await db.runAsync(
+      'DELETE FROM chat_room_messages WHERE room_id = ?',
+      [roomId]
+    );
+
+    // メンバーシップの削除
+    await db.runAsync(
+      'DELETE FROM chat_room_members WHERE room_id = ?',
+      [roomId]
+    );
+
+    // ルームの削除
+    await db.runAsync(
+      'DELETE FROM chat_rooms WHERE id = ?',
+      [roomId]
+    );
+
+    await db.commitAsync();
+
+    res.json({
+      status: 'success',
+      message: 'チャットルームを削除しました'
+    });
+  } catch (error) {
+    await db.rollbackAsync();
+    console.error('チャットルーム削除エラー:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'チャットルームの削除に失敗しました'
+    });
+  }
+};
+
+// メッセージの送信
+const sendMessage = async (req, res) => {
+  const { message, roomId } = req.body;
+  const userId = req.user.id;
+
+  try {
+    await db.beginTransactionAsync();
+
+    // チャットルームの存在確認
+    const room = await db.getAsync(
+      'SELECT * FROM chat_rooms WHERE id = ?',
+      [roomId]
+    );
+
+    if (!room) {
+      await db.rollbackAsync();
+      return res.status(404).json({
+        status: 'error',
+        message: 'チャットルームが見つかりません'
+      });
+    }
+
+    // ユーザーがルームのメンバーであることを確認
+    const membership = await db.getAsync(
+      'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
+      [roomId, userId]
+    );
+
+    if (!membership) {
+      await db.rollbackAsync();
+      return res.status(403).json({
+        status: 'error',
+        message: 'チャットルームのメンバーではありません'
+      });
     }
 
     // OpenAI APIを使用して応答を生成
@@ -65,20 +334,20 @@ const sendMessage = async (req, res) => {
     const userMessageId = uuidv4();
     await db.runAsync(
       'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
-      [userMessageId, defaultRoomId, userId, message, timestamp]
+      [userMessageId, roomId, userId, message, timestamp]
     );
 
     // AIの応答を保存
     const aiMessageId = uuidv4();
     await db.runAsync(
       'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
-      [aiMessageId, defaultRoomId, 'system', response, timestamp]
+      [aiMessageId, roomId, 'system', response, timestamp]
     );
 
     // トークルームの更新日時を更新
     await db.runAsync(
       'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [defaultRoomId]
+      [roomId]
     );
 
     await db.commitAsync();
@@ -111,39 +380,54 @@ const sendMessage = async (req, res) => {
 // チャット履歴の取得
 const getChatHistory = async (req, res) => {
   const userId = req.user.id;
-  const defaultRoomId = '00000000-0000-0000-0000-000000000000';
-
-  console.log('チャット履歴取得リクエスト:', {
-    userId,
-    user: req.user
-  });
+  const { roomId } = req.query;
 
   try {
-    // デフォルトルームのメッセージを取得
+    // チャットルームの存在確認
+    const room = await db.getAsync(
+      'SELECT * FROM chat_rooms WHERE id = ?',
+      [roomId]
+    );
+
+    if (!room) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'チャットルームが見つかりません'
+      });
+    }
+
+    // ユーザーがルームのメンバーであることを確認
+    const membership = await db.getAsync(
+      'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
+      [roomId, userId]
+    );
+
+    if (!membership) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'チャットルームのメンバーではありません'
+      });
+    }
+
+    // チャットルームのメッセージを取得
     const messages = await db.allAsync(`
       SELECT m.*, u.email as user_email
       FROM chat_room_messages m
       LEFT JOIN users u ON m.user_id = u.id
       WHERE m.room_id = ?
-      ORDER BY m.created_at DESC
-    `, [defaultRoomId]);
-
-    console.log('取得したチャット履歴:', messages);
-
-    const history = messages.map(msg => ({
-      id: msg.id,
-      user_id: msg.user_id,
-      user_email: msg.user_email || 'system',
-      message: msg.message,
-      created_at: msg.created_at
-    }));
-
-    console.log('フォーマット済みチャット履歴:', history);
+      ORDER BY m.created_at ASC
+    `, [roomId]);
 
     res.json({
       status: 'success',
       data: {
-        history: history
+        history: messages.map(msg => ({
+          id: msg.id,
+          user_id: msg.user_id,
+          user_email: msg.user_email || 'system',
+          message: msg.message,
+          created_at: msg.created_at
+        }))
       }
     });
   } catch (error) {
@@ -159,13 +443,7 @@ const getChatHistory = async (req, res) => {
 const deleteChatHistory = async (req, res) => {
   const { id } = req.params;
   const userId = req.user.id;
-  const defaultRoomId = '00000000-0000-0000-0000-000000000000';
-
-  console.log('チャット履歴削除リクエスト:', {
-    messageId: id,
-    userId,
-    user: req.user
-  });
+  const { roomId } = req.query;
 
   try {
     await db.beginTransactionAsync();
@@ -173,10 +451,8 @@ const deleteChatHistory = async (req, res) => {
     // メッセージの存在確認
     const message = await db.getAsync(
       'SELECT * FROM chat_room_messages WHERE id = ? AND room_id = ? AND user_id = ?',
-      [id, defaultRoomId, userId]
+      [id, roomId, userId]
     );
-
-    console.log('削除対象のメッセージ:', message);
 
     if (!message) {
       await db.rollbackAsync();
@@ -189,7 +465,7 @@ const deleteChatHistory = async (req, res) => {
     // メッセージの削除
     await db.runAsync(
       'DELETE FROM chat_room_messages WHERE id = ? AND room_id = ? AND user_id = ?',
-      [id, defaultRoomId, userId]
+      [id, roomId, userId]
     );
 
     await db.commitAsync();
@@ -209,6 +485,11 @@ const deleteChatHistory = async (req, res) => {
 };
 
 module.exports = {
+  createRoom,
+  getRooms,
+  getRoom,
+  updateRoom,
+  deleteRoom,
   sendMessage,
   getChatHistory,
   deleteChatHistory

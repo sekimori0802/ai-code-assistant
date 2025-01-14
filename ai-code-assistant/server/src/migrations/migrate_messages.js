@@ -1,79 +1,56 @@
+const fs = require('fs');
+const path = require('path');
 const db = require('../config/database');
 
-async function migrateMessages() {
+async function runMigration() {
   try {
-    console.log('Starting migration...');
-    await db.beginTransactionAsync();
+    console.log('マイグレーションを開始します...');
 
-    // デフォルトトークルームの作成
-    const defaultRoomId = '00000000-0000-0000-0000-000000000000';
-    console.log('Creating default room...');
-    
-    await db.runAsync(`
-      INSERT INTO chat_rooms (id, name, created_by, created_at, updated_at)
-      SELECT 
-          ?,
-          ?,
-          ?,
-          CURRENT_TIMESTAMP,
-          CURRENT_TIMESTAMP
-      WHERE NOT EXISTS (
-          SELECT 1 FROM chat_rooms WHERE id = ?
-      )
-    `, [defaultRoomId, 'General', 'system', defaultRoomId]);
+    // テーブル作成SQLの読み込みと実行
+    const createTablesSql = fs.readFileSync(
+      path.join(__dirname, 'create_tables.sql'),
+      'utf8'
+    );
+    console.log('テーブルを作成します...');
 
-    // chat_logsからユーザーを取得
-    console.log('Getting users from chat_logs...');
-    const users = await db.allAsync('SELECT DISTINCT user_id FROM chat_logs');
-    console.log(`Found ${users.length} users`);
+    // SQLステートメントを分割して実行
+    const createStatements = createTablesSql
+      .split(';')
+      .filter(stmt => stmt.trim())
+      .map(stmt => stmt.trim() + ';');
 
-    // 各ユーザーをメンバーとして追加
-    for (const user of users) {
-      await db.runAsync(`
-        INSERT INTO chat_room_members (room_id, user_id, joined_at)
-        SELECT 
-            ?,
-            ?,
-            CURRENT_TIMESTAMP
-        WHERE NOT EXISTS (
-            SELECT 1 
-            FROM chat_room_members 
-            WHERE room_id = ? 
-            AND user_id = ?
-        )
-      `, [defaultRoomId, user.user_id, defaultRoomId, user.user_id]);
+    for (const statement of createStatements) {
+      await db.runAsync(statement);
     }
+    console.log('テーブルの作成が完了しました');
 
-    // メッセージの移行
-    console.log('Migrating messages...');
-    const messages = await db.allAsync('SELECT * FROM chat_logs');
-    console.log(`Found ${messages.length} messages to migrate`);
+    // データ移行SQLの読み込みと実行
+    const migrateSql = fs.readFileSync(
+      path.join(__dirname, 'migrate_messages.sql'),
+      'utf8'
+    );
+    console.log('データを移行します...');
 
-    for (const msg of messages) {
-      await db.runAsync(`
-        INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at)
-        SELECT 
-            ?,
-            ?,
-            ?,
-            ?,
-            ?
-        WHERE NOT EXISTS (
-            SELECT 1 
-            FROM chat_room_messages 
-            WHERE id = ?
-        )
-      `, [msg.id, defaultRoomId, msg.user_id, msg.message, msg.timestamp, msg.id]);
+    // SQLステートメントを分割して実行
+    const migrateStatements = migrateSql
+      .split(';')
+      .filter(stmt => stmt.trim())
+      .map(stmt => stmt.trim() + ';');
+
+    for (const statement of migrateStatements) {
+      await db.runAsync(statement);
     }
+    console.log('データの移行が完了しました');
 
-    await db.commitAsync();
-    console.log('Migration completed successfully');
+    console.log('マイグレーションが正常に完了しました');
   } catch (error) {
-    await db.rollbackAsync();
-    console.error('Migration failed:', error);
-  } finally {
-    process.exit();
+    console.error('マイグレーションエラー:', error);
+    throw error;
   }
 }
 
-migrateMessages();
+// マイグレーションの実行
+runMigration().catch(error => {
+  console.error('マイグレーション失敗:', error);
+  process.exit(1);
+});

@@ -1,12 +1,12 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
 
-// トークルームの作成
+// AIチャットルームの作成
 async function createChatRoom(req, res) {
   const { name } = req.body;
   const userId = req.user.id;
 
-  console.log('トークルーム作成リクエスト:', {
+  console.log('AIチャットルーム作成リクエスト:', {
     name,
     userId,
     user: req.user
@@ -15,7 +15,7 @@ async function createChatRoom(req, res) {
   try {
     await db.beginTransactionAsync();
 
-    // トークルームの作成
+    // AIチャットルームの作成
     const roomId = uuidv4();
     await db.runAsync(
       'INSERT INTO chat_rooms (id, name, created_by) VALUES (?, ?, ?)',
@@ -65,16 +65,16 @@ async function getChatRooms(req, res) {
   });
 
   try {
-    // ユーザーが参加しているトークルーム一覧を取得
+    // ユーザーのAIチャットルーム一覧を取得
     const rooms = await db.allAsync(`
       SELECT r.*, COUNT(m.user_id) as member_count
       FROM chat_rooms r
-      JOIN chat_room_members m ON r.id = m.room_id
+      LEFT JOIN chat_room_members m ON r.id = m.room_id
       WHERE r.id IN (
-        SELECT room_id 
-        FROM chat_room_members 
-        WHERE user_id = ?
-      )
+            SELECT room_id 
+            FROM chat_room_members 
+            WHERE user_id = ?
+         )
       GROUP BY r.id
       ORDER BY r.updated_at DESC
     `, [userId]);
@@ -181,7 +181,7 @@ async function sendMessage(req, res) {
   try {
     await db.beginTransactionAsync();
 
-    // ユーザーがトークルームのメンバーであることを確認
+    // ルームのメンバーシップを確認
     const membership = await db.getAsync(
       'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
       [roomId, userId]
@@ -248,27 +248,65 @@ async function getMessages(req, res) {
   });
 
   try {
-    // ユーザーがトークルームのメンバーであることを確認
-    const membership = await db.getAsync(
-      'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
-      [roomId, userId]
-    );
+    // デフォルトルームの場合は自動的にメンバーとして追加
+    if (roomId === '00000000-0000-0000-0000-000000000000') {
+      const membership = await db.getAsync(
+        'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
+        [roomId, userId]
+      );
 
-    if (!membership) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'トークルームのメンバーではありません'
-      });
+      if (!membership) {
+        await db.runAsync(
+          'INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+          [roomId, userId]
+        );
+      }
+    } else {
+      // 通常のルームの場合はメンバーシップを確認
+      const membership = await db.getAsync(
+        'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
+        [roomId, userId]
+      );
+
+      if (!membership) {
+        return res.status(403).json({
+          status: 'error',
+          message: 'トークルームのメンバーではありません'
+        });
+      }
     }
 
     // メッセージ一覧を取得
     const messages = await db.allAsync(`
-      SELECT m.*, u.email as user_email
+      SELECT 
+        m.*,
+        CASE 
+          WHEN m.user_id = 'system' THEN 'System'
+          ELSE COALESCE(u.email, 'Unknown')
+        END as user_email
       FROM chat_room_messages m
-      JOIN users u ON m.user_id = u.id
+      LEFT JOIN users u ON m.user_id = u.id
       WHERE m.room_id = ?
-      ORDER BY m.created_at DESC
+      ORDER BY m.created_at ASC
     `, [roomId]);
+
+    // 新規ルームの場合、初期メッセージを追加
+    if (messages.length === 0) {
+      const welcomeMessageId = uuidv4();
+      await db.runAsync(
+        'INSERT INTO chat_room_messages (id, room_id, user_id, message) VALUES (?, ?, ?, ?)',
+        [welcomeMessageId, roomId, 'system', 'AIアシスタントが会話の準備ができました。ご質問やご要望をお気軽にどうぞ！']
+      );
+
+      messages.push({
+        id: welcomeMessageId,
+        room_id: roomId,
+        user_id: 'system',
+        user_email: 'System',
+        message: 'AIアシスタントが会話の準備ができました。ご質問やご要望をお気軽にどうぞ！',
+        created_at: new Date().toISOString()
+      });
+    }
 
     res.json({
       status: 'success',

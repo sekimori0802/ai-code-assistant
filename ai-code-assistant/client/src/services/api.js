@@ -85,27 +85,38 @@ export const chat = {
       );
 
       eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.error) {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received message:', data);
+
+          if (data.error) {
+            console.error('Server error:', data.error);
+            eventSource.close();
+            reject(new Error(data.error));
+            return;
+          }
+
+          // 完了イベントの確認
+          if (data.type === 'ai_response_complete') {
+            console.log('Stream complete');
+            eventSource.close();
+            resolve(data);
+            return;
+          }
+
+          onChunk(data);
+        } catch (error) {
+          console.error('Error parsing message:', error);
           eventSource.close();
-          reject(new Error(data.error));
-          return;
+          reject(error);
         }
-        onChunk(data);
       };
 
       eventSource.onerror = (error) => {
         console.error('EventSource error:', error);
         eventSource.close();
-        reject(error);
+        reject(new Error('Stream connection failed'));
       };
-
-      // 完了時にEventSourceをクローズ
-      eventSource.addEventListener('complete', (event) => {
-        const data = JSON.parse(event.data);
-        eventSource.close();
-        resolve(data);
-      });
     });
   },
   getHistory: (roomId) => apiClient.get(`/api/chat/history?roomId=${roomId}`),

@@ -5,6 +5,10 @@ import api from '../../services/api';
 
 const ChatRoom = () => {
   const { roomId } = useParams();
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(roomId);
+    alert('Room IDがコピーされました: ' + roomId);
+  };
   const { user } = useAuth();
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
@@ -70,6 +74,17 @@ const ChatRoom = () => {
 
   return (
     <div className="flex flex-col h-screen">
+      {/* Room ID 表示とコピー */}
+      <div className="p-4 border-b flex justify-between items-center">
+        <span className="text-lg font-bold">Room ID: {roomId}</span>
+        <button
+          onClick={copyToClipboard}
+          className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+        >
+          コピー
+        </button>
+      </div>
+
       {/* メッセージ一覧 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (

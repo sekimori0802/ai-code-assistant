@@ -81,7 +81,7 @@ async function getChatRooms(req, res) {
             SELECT room_id 
             FROM chat_room_members 
             WHERE user_id = ?
-         )
+         ) OR r.id = ?
       GROUP BY r.id
       ORDER BY r.updated_at DESC
     `, [userId]);

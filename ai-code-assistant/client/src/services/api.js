@@ -77,11 +77,11 @@ export const auth = {
 // チャット関連のAPI
 export const chat = {
   // AIとのチャット（ストリーミング対応）
-  sendMessage: (message, roomId, onChunk) => {
+  sendMessage: (message, roomId, onChunk, aiType) => {
     return new Promise((resolve, reject) => {
       const token = localStorage.getItem('token');
       const eventSource = new EventSource(
-        `${API_URL}/api/chat/send?message=${encodeURIComponent(message)}&roomId=${encodeURIComponent(roomId)}&token=${encodeURIComponent(token)}`
+        `${API_URL}/api/chat/send?message=${encodeURIComponent(message)}&roomId=${encodeURIComponent(roomId)}&token=${encodeURIComponent(token)}&aiType=${encodeURIComponent(aiType || 'code_generation')}`
       );
 
       eventSource.onmessage = (event) => {
@@ -123,7 +123,7 @@ export const chat = {
   deleteMessage: (id, roomId) => apiClient.delete(`/api/chat/history/${id}?roomId=${roomId}`),
   
   // チャットルーム管理
-  createRoom: (name) => apiClient.post('/api/chat/rooms', { name }),
+  createRoom: (data) => apiClient.post('/api/chat/rooms', data),
   getRooms: () => apiClient.get('/api/chat/rooms'),
   getRoom: (roomId) => apiClient.get(`/api/chat/rooms/${roomId}`),
   updateRoom: (roomId, data) => apiClient.put(`/api/chat/rooms/${roomId}`, data),

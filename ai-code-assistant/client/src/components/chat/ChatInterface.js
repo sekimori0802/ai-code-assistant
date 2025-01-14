@@ -8,8 +8,26 @@ const ChatInterface = ({ roomId }) => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [roomData, setRoomData] = useState(null);
   const messagesEndRef = useRef(null);
   const { user, isAuthenticated } = useAuth();
+
+  // チャットルームの情報を取得
+  const fetchRoomData = useCallback(async () => {
+    if (!roomId) return;
+    try {
+      const response = await api.chat.getRoom(roomId);
+      if (response.data.status === 'success') {
+        setRoomData(response.data.data);
+      }
+    } catch (error) {
+      console.error('チャットルーム情報の取得エラー:', error);
+    }
+  }, [roomId]);
+
+  useEffect(() => {
+    fetchRoomData();
+  }, [fetchRoomData]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -103,6 +121,7 @@ const ChatInterface = ({ roomId }) => {
         userMessage.content,
         roomId,
         (data) => {
+          // コールバック処理
           if (data.type === 'error') {
             console.error('AIエラー:', data.data);
             setError(data.data.message || 'AIの応答生成中にエラーが発生しました');
@@ -172,7 +191,7 @@ const ChatInterface = ({ roomId }) => {
             });
           }
         }
-      );
+      , roomData?.ai_type);
     } catch (error) {
       console.error('メッセージの送信エラー:', error);
       console.error('エラーの詳細:', {

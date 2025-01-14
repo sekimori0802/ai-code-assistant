@@ -81,13 +81,7 @@ export const chat = {
     return new Promise((resolve, reject) => {
       const token = localStorage.getItem('token');
       const eventSource = new EventSource(
-        `${API_URL}/api/chat/send?message=${encodeURIComponent(message)}&roomId=${encodeURIComponent(roomId)}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          withCredentials: false
-        }
+        `${API_URL}/api/chat/send?message=${encodeURIComponent(message)}&roomId=${encodeURIComponent(roomId)}&token=${encodeURIComponent(token)}`
       );
 
       eventSource.onmessage = (event) => {

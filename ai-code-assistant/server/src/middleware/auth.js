@@ -4,10 +4,18 @@ const db = require('../config/database');
 // JWTトークンの検証ミドルウェア
 const authenticateToken = async (req, res, next) => {
   try {
+    // ヘッダーまたはクエリパラメータからトークンを取得
     const authHeader = req.headers['authorization'];
-    console.log('認証ヘッダー:', authHeader);
+    const queryToken = req.query.token;
+    console.log('認証情報:', {
+      header: authHeader,
+      query: queryToken ? '存在します' : '存在しません'
+    });
 
-    const token = authHeader && authHeader.split(' ')[1];
+    let token = queryToken;
+    if (!token && authHeader) {
+      token = authHeader.split(' ')[1];
+    }
     console.log('トークン:', token ? '存在します' : '存在しません');
 
     if (!token) {

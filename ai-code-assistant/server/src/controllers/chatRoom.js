@@ -70,19 +70,30 @@ async function getChatRooms(req, res) {
     // ユーザーのAIチャットルーム一覧を取得
     console.log('トークルーム検索クエリ実行:', { userId, roomId: req.query.roomId });
 
-    const rooms = await db.allAsync(`
-      SELECT r.*, COUNT(m.user_id) as member_count,
-             (SELECT message 
-              FROM chat_room_messages 
-              WHERE room_id = r.id 
-              ORDER BY created_at DESC 
-              LIMIT 1) as last_message
-      FROM chat_rooms r
-      LEFT JOIN chat_room_members m ON r.id = m.room_id
-      WHERE r.id = ?
-      GROUP BY r.id
-      ORDER BY r.updated_at DESC
-    `, [req.query.roomId || '', userId]);
+    const room = await db.getAsync(
+      'SELECT * FROM chat_rooms WHERE id = ?',
+      [req.query.roomId]
+    );
+
+    if (!room) {
+      return res.status(404).json({
+        status: 'error',
+        message: '指定されたトークルームが見つかりません'
+      });
+    }
+
+    const membership = await db.getAsync(
+      'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
+      [req.query.roomId, userId]
+    );
+
+    res.json({
+      status: 'success',
+      data: {
+        room,
+        isMember: !!membership
+      }
+    });
 
     console.log('トークルーム検索結果:', rooms);
 

@@ -91,11 +91,21 @@ export const admin = {
   getChatLogs: () => apiClient.get('/api/admin/chat-logs'),
 };
 
+// トークルーム関連のAPI
+export const chatRoom = {
+  create: (name) => apiClient.post('/api/chat-rooms', { name }),
+  getAll: () => apiClient.get('/api/chat-rooms'),
+  addMember: (roomId, userId) => apiClient.post('/api/chat-rooms/member', { roomId, userId }),
+  sendMessage: (roomId, message) => apiClient.post('/api/chat-rooms/message', { roomId, message }),
+  getMessages: (roomId) => apiClient.get(`/api/chat-rooms/${roomId}/messages`),
+};
+
 // APIクライアントのエクスポート
 const api = {
   auth,
   chat,
-  admin
+  admin,
+  chatRoom
 };
 
 export default api;

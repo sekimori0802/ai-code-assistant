@@ -100,6 +100,43 @@ async function initializeTables(db) {
         )
       `);
 
+      // トークルームテーブル
+      db.run(`
+        CREATE TABLE IF NOT EXISTS chat_rooms (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          created_by TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+
+      // トークルームメンバーテーブル
+      db.run(`
+        CREATE TABLE IF NOT EXISTS chat_room_members (
+          room_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (room_id, user_id),
+          FOREIGN KEY (room_id) REFERENCES chat_rooms (id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+
+      // トークルームメッセージテーブル
+      db.run(`
+        CREATE TABLE IF NOT EXISTS chat_room_messages (
+          id TEXT PRIMARY KEY,
+          room_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          message TEXT NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (room_id) REFERENCES chat_rooms (id) ON DELETE CASCADE,
+          FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+      `);
+
       // LLM設定テーブル
       db.run(`
         CREATE TABLE IF NOT EXISTS llm_settings (

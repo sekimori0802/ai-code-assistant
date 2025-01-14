@@ -6,6 +6,8 @@ import PrivateRoute from './components/layout/PrivateRoute';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import ChatInterface from './components/chat/ChatInterface';
+import ChatRoomList from './components/chat/ChatRoomList';
+import ChatRoom from './components/chat/ChatRoom';
 
 function App() {
   return (
@@ -26,11 +28,27 @@ function App() {
                 </PrivateRoute>
               }
             />
+            <Route
+              path="/chat-rooms"
+              element={
+                <PrivateRoute>
+                  <ChatRoomList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/chat-room/:roomId"
+              element={
+                <PrivateRoute>
+                  <ChatRoom />
+                </PrivateRoute>
+              }
+            />
 
-            {/* その他のルートをチャットページにリダイレクト */}
+            {/* その他のルートをトークルーム一覧にリダイレクト */}
             <Route
               path="/"
-              element={<Navigate to="/chat" replace />}
+              element={<Navigate to="/chat-rooms" replace />}
             />
           </Routes>
         </Layout>

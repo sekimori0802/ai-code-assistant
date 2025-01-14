@@ -1,16 +1,26 @@
 const express = require('express');
 const router = express.Router();
+const { authenticateToken } = require('../middleware/auth');
 const { 
   sendMessage, 
   getChatHistory, 
-  deleteChatHistory,
-  createRoom,
-  getRooms,
-  getRoom,
-  updateRoom,
-  deleteRoom
+  deleteChatHistory
 } = require('../controllers/chat');
-const { authenticateToken } = require('../middleware/auth');
+const {
+  createChatRoom,
+  getChatRooms,
+  getMessages,
+  addMember,
+  sendMessage: chatRoomSendMessage,
+  deleteChatRoom
+} = require('../controllers/chatRoom');
+
+// 関数名のエイリアス
+const createRoom = createChatRoom;
+const getRooms = getChatRooms;
+const getRoom = getMessages;
+const updateRoom = addMember;
+const deleteRoom = deleteChatRoom;
 
 // すべてのチャットルートで認証を必要とする
 router.use(authenticateToken);

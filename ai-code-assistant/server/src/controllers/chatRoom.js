@@ -3,11 +3,12 @@ const db = require('../config/database');
 
 // AIチャットルームの作成
 async function createChatRoom(req, res) {
-  const { name } = req.body;
+  const { name, aiType } = req.body;
   const userId = req.user.id;
 
   console.log('AIチャットルーム作成リクエスト:', {
     name,
+    aiType,
     userId,
     user: req.user
   });
@@ -18,8 +19,8 @@ async function createChatRoom(req, res) {
     // AIチャットルームの作成
     const roomId = uuidv4();
     await db.runAsync(
-      'INSERT INTO chat_rooms (id, name, created_by) VALUES (?, ?, ?)',
-      [roomId, name, userId]
+      'INSERT INTO chat_rooms (id, name, created_by, ai_type) VALUES (?, ?, ?, ?)',
+      [roomId, name, userId, aiType || 'code_generation']
     );
 
     // 作成者をメンバーとして追加
@@ -42,6 +43,7 @@ async function createChatRoom(req, res) {
         id: room.id,
         name: room.name,
         created_by: room.created_by,
+        ai_type: room.ai_type,
         created_at: room.created_at
       }
     });
@@ -53,7 +55,7 @@ async function createChatRoom(req, res) {
       message: 'トークルームの作成に失敗しました'
     });
   }
-};
+}
 
 // トークルーム一覧の取得
 async function getChatRooms(req, res) {
@@ -67,7 +69,12 @@ async function getChatRooms(req, res) {
   try {
     // ユーザーのAIチャットルーム一覧を取得
     const rooms = await db.allAsync(`
-      SELECT r.*, COUNT(m.user_id) as member_count
+      SELECT r.*, COUNT(m.user_id) as member_count,
+             (SELECT message 
+              FROM chat_room_messages 
+              WHERE room_id = r.id 
+              ORDER BY created_at DESC 
+              LIMIT 1) as last_message
       FROM chat_rooms r
       LEFT JOIN chat_room_members m ON r.id = m.room_id
       WHERE r.id IN (
@@ -86,7 +93,9 @@ async function getChatRooms(req, res) {
           id: room.id,
           name: room.name,
           created_by: room.created_by,
+          ai_type: room.ai_type,
           member_count: room.member_count,
+          last_message: room.last_message,
           created_at: room.created_at,
           updated_at: room.updated_at
         }))
@@ -99,7 +108,7 @@ async function getChatRooms(req, res) {
       message: 'トークルーム一覧の取得に失敗しました'
     });
   }
-};
+}
 
 // トークルームへのメンバー追加
 async function addMember(req, res) {
@@ -164,7 +173,7 @@ async function addMember(req, res) {
       message: 'メンバーの追加に失敗しました'
     });
   }
-};
+}
 
 // トークルーム内のメッセージ送信
 async function sendMessage(req, res) {
@@ -234,7 +243,7 @@ async function sendMessage(req, res) {
       message: 'メッセージの送信に失敗しました'
     });
   }
-};
+}
 
 // トークルーム内のメッセージ一覧取得
 async function getMessages(req, res) {
@@ -292,10 +301,30 @@ async function getMessages(req, res) {
 
     // 新規ルームの場合、初期メッセージを追加
     if (messages.length === 0) {
+      const room = await db.getAsync('SELECT ai_type FROM chat_rooms WHERE id = ?', [roomId]);
+      let welcomeMessage = 'AIアシスタントが会話の準備ができました。ご質問やご要望をお気軽にどうぞ！';
+      
+      switch (room.ai_type) {
+        case 'blog_writing':
+          welcomeMessage = 'ブログ記事作成アシスタントです。記事のテーマや構成についてご相談ください。';
+          break;
+        case 'english_conversation':
+          welcomeMessage = 'English conversation assistant here. Let\'s practice English together!';
+          break;
+        case 'video_editing':
+          welcomeMessage = '動画編集アシスタントです。編集のコツやテクニックについてアドバイスいたします。';
+          break;
+        case 'pc_productivity':
+          welcomeMessage = 'PC作業の効率化アシスタントです。時短テクニックやツールの活用法をご案内します。';
+          break;
+        default:
+          welcomeMessage = 'コード生成アシスタントです。プログラミングについてご質問ください。';
+      }
+
       const welcomeMessageId = uuidv4();
       await db.runAsync(
         'INSERT INTO chat_room_messages (id, room_id, user_id, message) VALUES (?, ?, ?, ?)',
-        [welcomeMessageId, roomId, 'system', 'AIアシスタントが会話の準備ができました。ご質問やご要望をお気軽にどうぞ！']
+        [welcomeMessageId, roomId, 'system', welcomeMessage]
       );
 
       messages.push({
@@ -303,7 +332,7 @@ async function getMessages(req, res) {
         room_id: roomId,
         user_id: 'system',
         user_email: 'System',
-        message: 'AIアシスタントが会話の準備ができました。ご質問やご要望をお気軽にどうぞ！',
+        message: welcomeMessage,
         created_at: new Date().toISOString()
       });
     }
@@ -328,12 +357,69 @@ async function getMessages(req, res) {
       message: 'メッセージ一覧の取得に失敗しました'
     });
   }
-};
+}
+
+// チャットルームの削除
+async function deleteChatRoom(req, res) {
+  const { roomId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    await db.beginTransactionAsync();
+
+    // ユーザーがルームのメンバーであることを確認
+    const membership = await db.getAsync(
+      'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
+      [roomId, userId]
+    );
+
+    if (!membership) {
+      await db.rollbackAsync();
+      return res.status(403).json({
+        status: 'error',
+        message: 'チャットルームのメンバーではありません'
+      });
+    }
+
+    // チャットルームのメッセージを削除
+    await db.runAsync(
+      'DELETE FROM chat_room_messages WHERE room_id = ?',
+      [roomId]
+    );
+
+    // チャットルームのメンバーを削除
+    await db.runAsync(
+      'DELETE FROM chat_room_members WHERE room_id = ?',
+      [roomId]
+    );
+
+    // チャットルームを削除
+    await db.runAsync(
+      'DELETE FROM chat_rooms WHERE id = ?',
+      [roomId]
+    );
+
+    await db.commitAsync();
+
+    res.json({
+      status: 'success',
+      message: 'チャットルームを削除しました'
+    });
+  } catch (error) {
+    await db.rollbackAsync();
+    console.error('チャットルーム削除エラー:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'チャットルームの削除に失敗しました'
+    });
+  }
+}
 
 module.exports = {
   createChatRoom,
   getChatRooms,
   addMember,
   sendMessage,
-  getMessages
+  getMessages,
+  deleteChatRoom
 };

@@ -25,12 +25,6 @@ const Layout = ({ children }) => {
               {user && (
                 <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                   <Link
-                    to="/chat"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 border-b-2 border-transparent hover:border-gray-300"
-                  >
-                    AIチャット
-                  </Link>
-                  <Link
                     to="/chat-rooms"
                     className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900 border-b-2 border-transparent hover:border-gray-300"
                   >

@@ -271,34 +271,32 @@ async function getMessages(req, res) {
   });
 
   try {
-    // デフォルトルームの場合は自動的にメンバーとして追加
-    if (roomId === '00000000-0000-0000-0000-000000000000') {
-      const membership = await db.getAsync(
-        'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
+    // トークルームが存在するか確認
+    const room = await db.getAsync(
+      'SELECT * FROM chat_rooms WHERE id = ?',
+      [roomId]
+    );
+
+    if (!room) {
+      return res.status(404).json({
+        status: 'error',
+        message: '指定されたトークルームが見つかりません'
+      });
+    }
+
+    // ユーザーがトークルームのメンバーであるか確認
+    let membership = await db.getAsync(
+      'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
+      [roomId, userId]
+    );
+
+    // 未参加の場合は自動的に参加させる
+    if (!membership) {
+      await db.runAsync(
+        'INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
         [roomId, userId]
       );
-
-      if (!membership) {
-        await db.runAsync(
-          'INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-          [roomId, userId]
-        );
-      }
-    } else {
-      // 通常のルームの場合はメンバーシップを確認
-      let membership = await db.getAsync(
-        'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
-        [roomId, userId]
-      );
-
-      // 未参加の場合は自動的に参加させる
-      if (!membership) {
-        await db.runAsync(
-          'INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-          [roomId, userId]
-        );
-        membership = { room_id: roomId, user_id: userId }; // 仮のメンバーシップデータ
-      }
+      membership = { room_id: roomId, user_id: userId }; // 仮のメンバーシップデータ
     }
 
     // メッセージ一覧を取得

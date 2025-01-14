@@ -70,28 +70,63 @@ async function getChatRooms(req, res) {
     // ユーザーのAIチャットルーム一覧を取得
     console.log('トークルーム検索クエリ実行:', { userId, roomId: req.query.roomId });
 
-    const room = await db.getAsync(
-      'SELECT * FROM chat_rooms WHERE id = ?',
-      [req.query.roomId]
-    );
+    console.log('トークルーム検索開始:', { roomId: req.query.roomId, userId });
 
-    if (!room) {
-      return res.status(404).json({
+    try {
+      const rooms = await db.allAsync(`
+        SELECT r.*, COUNT(m.user_id) as member_count,
+               (SELECT message 
+                FROM chat_room_messages 
+                WHERE room_id = r.id 
+                ORDER BY created_at DESC 
+                LIMIT 1) as last_message
+        FROM chat_rooms r
+        LEFT JOIN chat_room_members m ON r.id = m.room_id
+        WHERE r.id = ?
+        GROUP BY r.id
+        ORDER BY r.updated_at DESC
+      `, [req.query.roomId || '', userId]);
+
+      console.log('トークルーム検索結果:', rooms);
+
+      res.json({
+        status: 'success',
+        data: {
+          rooms: rooms.map(room => ({
+            id: room.id,
+            name: room.name,
+            created_by: room.created_by,
+            ai_type: room.ai_type,
+            member_count: room.member_count,
+            last_message: room.last_message,
+            created_at: room.created_at,
+            updated_at: room.updated_at
+          }))
+        }
+      });
+    } catch (error) {
+      console.error('トークルーム検索エラー:', error);
+      res.status(500).json({
         status: 'error',
-        message: '指定されたトークルームが見つかりません'
+        message: 'トークルームの取得に失敗しました'
       });
     }
 
-    const membership = await db.getAsync(
-      'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
-      [req.query.roomId, userId]
-    );
+    console.log('トークルーム検索結果:', rooms);
 
     res.json({
       status: 'success',
       data: {
-        room,
-        isMember: !!membership
+        rooms: rooms.map(room => ({
+          id: room.id,
+          name: room.name,
+          created_by: room.created_by,
+          ai_type: room.ai_type,
+          member_count: room.member_count,
+          last_message: room.last_message,
+          created_at: room.created_at,
+          updated_at: room.updated_at
+        }))
       }
     });
 

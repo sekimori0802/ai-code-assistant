@@ -68,6 +68,8 @@ async function getChatRooms(req, res) {
 
   try {
     // ユーザーのAIチャットルーム一覧を取得
+    console.log('トークルーム検索クエリ実行:', { userId, roomId: req.query.roomId });
+
     const rooms = await db.allAsync(`
       SELECT r.*, COUNT(m.user_id) as member_count,
              (SELECT message 
@@ -84,7 +86,9 @@ async function getChatRooms(req, res) {
          )
       GROUP BY r.id
       ORDER BY r.updated_at DESC
-    `, [userId]);
+    `, [req.query.roomId || '', userId]);
+
+    console.log('トークルーム検索結果:', rooms);
 
     res.json({
       status: 'success',

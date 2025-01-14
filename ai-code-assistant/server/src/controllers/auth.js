@@ -78,10 +78,14 @@ const login = async (req, res) => {
 
   try {
     // ユーザーの検索
+    console.log('ログイン処理開始:', { email });
+
     const user = await db.getAsync(
       'SELECT * FROM users WHERE email = ?',
       [email]
     );
+
+    console.log('ユーザー検索結果:', user);
 
     if (!user) {
       return res.status(401).json({
@@ -92,6 +96,7 @@ const login = async (req, res) => {
 
     // パスワードの検証
     const validPassword = await bcrypt.compare(password, user.password_hash);
+    console.log('パスワード検証結果:', validPassword);
     if (!validPassword) {
       return res.status(401).json({
         status: 'error',
@@ -100,11 +105,15 @@ const login = async (req, res) => {
     }
 
     // JWTトークンの生成
+    console.log('JWT_SECRET:', process.env.JWT_SECRET);
+
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
+
+    console.log('JWTトークン生成成功:', token);
 
     // 最終ログイン日時の更新
     await db.runAsync(

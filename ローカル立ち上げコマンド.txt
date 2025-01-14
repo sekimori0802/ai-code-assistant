@@ -12,6 +12,19 @@ cd ai-code-assistant/client; npm install; npm start
 - 必ずサーバーを先に起動してからクライアントを起動してください
 - 両方のターミナルは起動したまま維持してください
 
+## アプリケーションの再起動手順
+1. 既存のターミナルで Ctrl+C を押して、サーバーとクライアントを停止
+2. サーバーの再起動:
+   ```
+   cd ai-code-assistant/server
+   npm start
+   ```
+3. 新しいターミナルでクライアントの再起動:
+   ```
+   cd ai-code-assistant/client
+   npm start
+   ```
+
 ## 環境変数の確認
 サーバー側の.envファイルに以下の設定があることを確認：
 - NODE_ENV=development

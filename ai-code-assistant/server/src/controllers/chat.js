@@ -338,59 +338,75 @@ const sendMessage = async (req, res) => {
       }
     })}\n\n`);
 
-    // OpenAI APIを使用して応答を生成（ストリーミングモード）
-    const stream = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: message }
-      ],
-      temperature: 0.7,
-      max_tokens: 8000,
-      stream: true,
-    });
+    try {
+      // OpenAI APIを使用して応答を生成（ストリーミングモード）
+      const stream = await openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: message }
+        ],
+        temperature: 0.7,
+        max_tokens: 4000,
+        stream: true,
+      });
 
-    let fullResponse = '';
+      let fullResponse = '';
 
-    // ストリームからの応答を処理
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || '';
-      if (content) {
-        fullResponse += content;
-        // クライアントにチャンクを送信
-        res.write(`data: ${JSON.stringify({
-          type: 'ai_response_chunk',
-          data: { content }
-        })}\n\n`);
+      // ストリームからの応答を処理
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+        if (content) {
+          fullResponse += content;
+          // クライアントにチャンクを送信
+          res.write(`data: ${JSON.stringify({
+            type: 'ai_response_chunk',
+            data: { content }
+          })}\n\n`);
+        }
       }
+
+      // AIの完全な応答を保存
+      const aiMessageId = uuidv4();
+      await db.runAsync(
+        'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
+        [aiMessageId, roomId, 'system', fullResponse, timestamp]
+      );
+
+      // トークルームの更新日時を更新
+      await db.runAsync(
+        'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [roomId]
+      );
+
+      await db.commitAsync();
+
+      // 完了通知を送信
+      res.write(`data: ${JSON.stringify({
+        type: 'ai_response_complete',
+        data: {
+          id: aiMessageId,
+          message: fullResponse,
+          timestamp: timestamp
+        }
+      })}\n\n`);
+
+      res.end();
+    } catch (error) {
+      console.error('OpenAI APIエラー:', error);
+      await db.rollbackAsync();
+      
+      // エラーメッセージをクライアントに送信
+      res.write(`data: ${JSON.stringify({
+        type: 'error',
+        data: { 
+          message: 'AIの応答生成中にエラーが発生しました',
+          details: error.message
+        }
+      })}\n\n`);
+      
+      res.end();
     }
-
-    // AIの完全な応答を保存
-    const aiMessageId = uuidv4();
-    await db.runAsync(
-      'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
-      [aiMessageId, roomId, 'system', fullResponse, timestamp]
-    );
-
-    // トークルームの更新日時を更新
-    await db.runAsync(
-      'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [roomId]
-    );
-
-    await db.commitAsync();
-
-    // 完了通知を送信
-    res.write(`data: ${JSON.stringify({
-      type: 'ai_response_complete',
-      data: {
-        id: aiMessageId,
-        message: fullResponse,
-        timestamp: timestamp
-      }
-    })}\n\n`);
-
-    res.end();
   } catch (error) {
     await db.rollbackAsync();
     console.error('メッセージの送信エラー:', error);

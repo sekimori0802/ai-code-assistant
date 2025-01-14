@@ -103,6 +103,27 @@ const ChatInterface = ({ roomId }) => {
         userMessage.content,
         roomId,
         (data) => {
+          if (data.type === 'error') {
+            console.error('AIエラー:', data.data);
+            setError(data.data.message || 'AIの応答生成中にエラーが発生しました');
+            // エラーメッセージを表示
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastIndex = newMessages.length - 1;
+              if (lastIndex >= 0) {
+                newMessages[lastIndex] = {
+                  type: 'error',
+                  content: data.data.message || 'AIの応答生成中にエラーが発生しました',
+                  timestamp: new Date().toISOString(),
+                  userId: 'system',
+                  userEmail: 'System'
+                };
+              }
+              return newMessages;
+            });
+            return;
+          }
+
           if (data.type === 'user_message_saved') {
             // ユーザーメッセージを更新
             setMessages(prev => {

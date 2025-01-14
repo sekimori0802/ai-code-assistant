@@ -204,6 +204,20 @@ async function sendMessage(req, res) {
       });
     }
 
+    // トークルームのメンバー数を取得
+    const memberCount = await db.getAsync(
+      'SELECT COUNT(user_id) as count FROM chat_room_members WHERE room_id = ?',
+      [roomId]
+    );
+
+    // AIモデルを呼び出す条件を確認
+    const shouldCallAI = memberCount.count === 1 || message.includes('@AI');
+
+    if (shouldCallAI) {
+      console.log('AIモデルを呼び出します');
+      // AIモデル呼び出しロジックをここに追加
+    }
+
     // メッセージを保存
     const messageId = uuidv4();
     await db.runAsync(

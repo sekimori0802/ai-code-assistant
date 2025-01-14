@@ -79,11 +79,7 @@ async function getChatRooms(req, res) {
               LIMIT 1) as last_message
       FROM chat_rooms r
       LEFT JOIN chat_room_members m ON r.id = m.room_id
-      WHERE r.id = ? OR r.id IN (
-            SELECT room_id 
-            FROM chat_room_members 
-            WHERE user_id = ?
-         )
+      WHERE r.id = ?
       GROUP BY r.id
       ORDER BY r.updated_at DESC
     `, [req.query.roomId || '', userId]);

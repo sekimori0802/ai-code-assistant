@@ -346,7 +346,7 @@ const sendMessage = async (req, res) => {
         { role: 'user', content: message }
       ],
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: 8000,
       stream: true,
     });
 

@@ -286,16 +286,18 @@ async function getMessages(req, res) {
       }
     } else {
       // 通常のルームの場合はメンバーシップを確認
-      const membership = await db.getAsync(
+      let membership = await db.getAsync(
         'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
         [roomId, userId]
       );
 
+      // 未参加の場合は自動的に参加させる
       if (!membership) {
-        return res.status(403).json({
-          status: 'error',
-          message: 'トークルームのメンバーではありません'
-        });
+        await db.runAsync(
+          'INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+          [roomId, userId]
+        );
+        membership = { room_id: roomId, user_id: userId }; // 仮のメンバーシップデータ
       }
     }
 

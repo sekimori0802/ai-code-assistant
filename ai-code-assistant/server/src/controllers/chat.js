@@ -217,53 +217,67 @@ const sendMessage = async (req, res) => {
         if (content) {
           fullResponse += content;
           
-          // データベースのメッセージを更新
-          await db.runAsync(
-            'UPDATE chat_room_messages SET message = ? WHERE id = ?',
-            [fullResponse, aiMessageId]
-          );
+          try {
+            await db.beginTransactionAsync();
 
-          // トークルームの更新日時を更新
-          await db.runAsync(
-            'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-            [roomId]
-          );
+            // データベースのメッセージを更新
+            await db.runAsync(
+              'UPDATE chat_room_messages SET message = ? WHERE id = ?',
+              [fullResponse, aiMessageId]
+            );
 
-          // クライアントにチャンクを送信
-          res.write(`data: ${JSON.stringify({
-            type: 'ai_response_chunk',
-            data: { 
-              id: aiMessageId,
-              content,
-              fullContent: fullResponse,
-              timestamp: timestamp
-            }
-          })}\n\n`);
+            // トークルームの更新日時を更新
+            await db.runAsync(
+              'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+              [roomId]
+            );
 
-          // 変更をコミット
-          await db.commitAsync();
-          // 新しいトランザクションを開始
-          await db.beginTransactionAsync();
+            await db.commitAsync();
+
+            // クライアントにチャンクを送信
+            res.write(`data: ${JSON.stringify({
+              type: 'ai_response_chunk',
+              data: { 
+                id: aiMessageId,
+                content,
+                fullContent: fullResponse,
+                timestamp: timestamp
+              }
+            })}\n\n`);
+          } catch (error) {
+            console.error('チャンク処理エラー:', error);
+            await db.rollbackAsync();
+          }
         }
       }
 
-      // トークルームの更新日時を更新
-      await db.runAsync(
-        'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [roomId]
-      );
+      try {
+        await db.beginTransactionAsync();
 
-      // 完了通知を送信
-      res.write(`data: ${JSON.stringify({
-        type: 'ai_response_complete',
-        data: {
-          id: aiMessageId,
-          message: fullResponse,
-          timestamp: timestamp
-        }
-      })}\n\n`);
+        // トークルームの更新日時を更新
+        await db.runAsync(
+          'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [roomId]
+        );
 
-      res.end();
+        await db.commitAsync();
+
+        // 完了通知を送信
+        res.write(`data: ${JSON.stringify({
+          type: 'ai_response_complete',
+          data: {
+            id: aiMessageId,
+            message: fullResponse,
+            timestamp: timestamp
+          }
+        })}\n\n`);
+
+        res.end();
+      } catch (error) {
+        console.error('完了処理エラー:', error);
+        await db.rollbackAsync();
+        res.end();
+      }
     } catch (error) {
       console.error('OpenAI APIエラー:', error);
       await db.rollbackAsync();

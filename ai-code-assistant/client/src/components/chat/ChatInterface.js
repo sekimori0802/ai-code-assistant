@@ -41,7 +41,6 @@ const ChatInterface = ({ roomId }) => {
 
     try {
       setError('');
-      setIsLoading(true);
       console.log('チャット履歴を取得中...');
       const response = await api.chat.getHistory(roomId);
       console.log('サーバーレスポンス:', response);
@@ -49,6 +48,7 @@ const ChatInterface = ({ roomId }) => {
       if (response?.data?.status === 'success' && Array.isArray(response.data.data?.history)) {
         console.log('チャット履歴:', response.data.data.history);
         const formattedHistory = response.data.data.history.map(item => ({
+          id: item.id,
           type: item.user_id === 'system' ? 'ai' : 'user',
           content: item.message,
           timestamp: item.created_at,
@@ -68,8 +68,6 @@ const ChatInterface = ({ roomId }) => {
         status: error.response?.status
       });
       setError('チャット履歴の取得に失敗しました。ページを再読み込みしてください。');
-    } finally {
-      setIsLoading(false);
     }
   }, [isAuthenticated, user, roomId]);
 
@@ -117,13 +115,13 @@ const ChatInterface = ({ roomId }) => {
       await api.chat.sendMessage(
         userMessage.content,
         roomId,
-        (data) => {
+        async (data) => {
           if (data.type === 'error') {
             console.error('AIエラー:', data.data);
             setError(data.data.message || 'AIの応答生成中にエラーが発生しました');
             // エラーメッセージを表示し、AIの応答メッセージを削除
             setMessages(prev => {
-              const newMessages = prev.slice(0, -1); // AIの応答メッセージを削除
+              const newMessages = prev.filter(msg => !msg.isTemp);
               return newMessages;
             });
             return;
@@ -158,6 +156,7 @@ const ChatInterface = ({ roomId }) => {
               setMessages(prev => [...prev, aiMessage]);
             } else {
               setIsLoading(false);
+              await loadChatHistory();
             }
           } else if (data.type === 'ai_response_chunk') {
             // AIの応答を段階的に更新
@@ -177,30 +176,8 @@ const ChatInterface = ({ roomId }) => {
             });
           } else if (data.type === 'ai_response_complete') {
             // ストリーミング完了時の処理
-            const aiMessage = {
-              id: data.data.id,
-              type: 'ai',
-              content: data.data.message,
-              timestamp: data.data.timestamp,
-              userId: 'system',
-              userEmail: 'System',
-              isStreaming: false
-            };
-
-            setMessages(prev => {
-              const lastMessage = prev[prev.length - 1];
-              if (lastMessage && lastMessage.type === 'ai') {
-                const newMessages = [...prev];
-                newMessages[newMessages.length - 1] = aiMessage;
-                return newMessages;
-              }
-              return [...prev, aiMessage];
-            });
-
-            // メッセージの永続化を確認
-            setTimeout(() => {
-              loadChatHistory();
-            }, 500);
+            await loadChatHistory();
+            setIsLoading(false);
           }
         }
       , roomData?.ai_type);
@@ -213,7 +190,7 @@ const ChatInterface = ({ roomId }) => {
       });
       setError('メッセージの送信に失敗しました。もう一度お試しください。');
       // 失敗したメッセージを削除
-      setMessages(prev => prev.slice(0, -1));
+      setMessages(prev => prev.filter(msg => !msg.isTemp));
     } finally {
       setIsLoading(false);
     }

@@ -133,26 +133,6 @@ const sendMessage = async (req, res) => {
       memberCount
     });
 
-    if (!shouldCallAI) {
-      // AIを呼び出さない場合はユーザーメッセージのみを保存
-      const userMessageId = uuidv4();
-      await db.runAsync(
-        'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
-        [userMessageId, roomId, userId, message, new Date().toISOString()]
-      );
-      await db.commitAsync();
-      res.write(`data: ${JSON.stringify({
-        type: 'user_message_saved',
-        data: {
-          id: userMessageId,
-          message: message,
-          timestamp: new Date().toISOString()
-        }
-      })}\n\n`);
-      res.end();
-      return;
-    }
-
     // ユーザーがルームのメンバーであることを確認
     const membership = await db.getAsync(
       'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
@@ -161,8 +141,15 @@ const sendMessage = async (req, res) => {
 
     if (!membership) {
       await db.rollbackAsync();
-      res.write(`data: ${JSON.stringify({ error: 'チャットルームのメンバーではありません' })}\n\n`);
-      res.end();
+      if (req.method === 'GET') {
+        res.write(`data: ${JSON.stringify({ error: 'チャットルームのメンバーではありません' })}\n\n`);
+        res.end();
+      } else {
+        res.status(403).json({
+          status: 'error',
+          message: 'チャットルームのメンバーではありません'
+        });
+      }
       return;
     }
 
@@ -174,6 +161,33 @@ const sendMessage = async (req, res) => {
       'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
       [userMessageId, roomId, userId, message, timestamp]
     );
+
+    // メンバー数とメンション条件に基づいてAIの応答を制御
+    if (!shouldCallAI) {
+      await db.commitAsync();
+      if (req.method === 'GET') {
+        res.write(`data: ${JSON.stringify({
+          type: 'user_message_saved',
+          data: {
+            id: userMessageId,
+            message: message,
+            timestamp: timestamp
+          }
+        })}\n\n`);
+        res.end();
+      } else {
+        res.json({
+          status: 'success',
+          data: {
+            id: userMessageId,
+            message: message,
+            timestamp: timestamp
+          }
+        });
+      }
+      return;
+    }
+
 
     // ユーザーメッセージの保存を通知
     res.write(`data: ${JSON.stringify({

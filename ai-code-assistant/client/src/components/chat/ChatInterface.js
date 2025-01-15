@@ -299,13 +299,22 @@ const ChatInterface = ({ roomId }) => {
       <div className="border-t bg-white p-4 shadow-lg">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
           <div className="flex space-x-4">
-            <input
-              type="text"
+            <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="メッセージを入力してください..."
-              className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (input.trim() && !isLoading && isAuthenticated && roomId) {
+                    handleSubmit(e);
+                  }
+                }
+              }}
+              placeholder="メッセージを入力してください... (Shift + Enter で改行)"
+              className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 resize-none min-h-[2.5rem] max-h-32 overflow-y-auto"
               disabled={isLoading || !isAuthenticated || !roomId}
+              rows={1}
+              style={{ height: 'auto', minHeight: '2.5rem' }}
             />
             <button
               type="submit"

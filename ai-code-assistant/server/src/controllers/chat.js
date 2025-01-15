@@ -238,7 +238,14 @@ const sendMessage = async (req, res) => {
           });
 
           try {
-            const result = await model.generateContent({
+            // デバッグ情報：モデル情報の出力
+            console.log('Gemini Model Info:', {
+              model: llmSettings.model,
+              apiKey: apiKey ? 'Set' : 'Not Set'
+            });
+
+            // リクエストの内容を出力
+            const requestContent = {
               contents: [{
                 role: 'user',
                 parts: [{
@@ -259,9 +266,16 @@ const sendMessage = async (req, res) => {
                 temperature: 0.7,
                 maxOutputTokens: 2000,
               }
-            });
+            };
+            console.log('Gemini Request:', JSON.stringify(requestContent, null, 2));
+
+            const result = await model.generateContent(requestContent);
+            
+            // レスポンスの詳細を出力
+            console.log('Gemini Raw Response:', result);
             
             if (!result.response) {
+              console.error('Empty Response:', result);
               throw new Error('Geminiからの応答が空です');
             }
 

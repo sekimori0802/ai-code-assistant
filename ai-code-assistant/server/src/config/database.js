@@ -69,6 +69,8 @@ const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CR
       await db.runAsync('PRAGMA foreign_keys = ON');
       // 同時実行制御を改善
       await db.runAsync('PRAGMA busy_timeout = 5000');
+      // トランザクション分離レベルを設定
+      await db.runAsync('PRAGMA read_uncommitted = 0');
 
       await initializeTables(db);
       await createDefaultAdmin(db);
@@ -230,47 +232,49 @@ db.allAsync = function (sql, params) {
   });
 };
 
+// トランザクション状態の管理
+let transactionCount = 0;
+
 // トランザクション用のPromiseラッパー
-db.beginTransactionAsync = function () {
-  return new Promise((resolve, reject) => {
-    this.run('BEGIN IMMEDIATE TRANSACTION', (err) => {
-      if (err) {
-        console.error('トランザクション開始エラー:', err);
-        reject(err);
-      } else {
-        console.log('トランザクションを開始しました');
-        resolve();
-      }
-    });
-  });
+db.beginTransactionAsync = async function () {
+  try {
+    if (transactionCount === 0) {
+      await this.runAsync('BEGIN IMMEDIATE TRANSACTION');
+      console.log('トランザクションを開始しました');
+    }
+    transactionCount++;
+  } catch (error) {
+    console.error('トランザクション開始エラー:', error);
+    throw error;
+  }
 };
 
-db.commitAsync = function () {
-  return new Promise((resolve, reject) => {
-    this.run('COMMIT', (err) => {
-      if (err) {
-        console.error('トランザクションコミットエラー:', err);
-        reject(err);
-      } else {
-        console.log('トランザクションをコミットしました');
-        resolve();
-      }
-    });
-  });
+db.commitAsync = async function () {
+  try {
+    if (transactionCount === 1) {
+      await this.runAsync('COMMIT');
+      console.log('トランザクションをコミットしました');
+    }
+    if (transactionCount > 0) {
+      transactionCount--;
+    }
+  } catch (error) {
+    console.error('トランザクションコミットエラー:', error);
+    throw error;
+  }
 };
 
-db.rollbackAsync = function () {
-  return new Promise((resolve, reject) => {
-    this.run('ROLLBACK', (err) => {
-      if (err) {
-        console.error('トランザクションロールバックエラー:', err);
-        reject(err);
-      } else {
-        console.log('トランザクションをロールバックしました');
-        resolve();
-      }
-    });
-  });
+db.rollbackAsync = async function () {
+  try {
+    if (transactionCount > 0) {
+      await this.runAsync('ROLLBACK');
+      console.log('トランザクションをロールバックしました');
+      transactionCount = 0;
+    }
+  } catch (error) {
+    console.error('トランザクションロールバックエラー:', error);
+    throw error;
+  }
 };
 
 // データベース接続のクリーンアップ

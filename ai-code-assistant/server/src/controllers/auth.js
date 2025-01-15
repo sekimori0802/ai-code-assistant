@@ -197,9 +197,13 @@ const resetPassword = async (req, res) => {
 
 // トークン検証
 const verifyToken = async (req, res) => {
+  let transaction = false;
   try {
     const user = req.user;
     console.log('トークン検証リクエスト:', { user });
+
+    await db.beginTransactionAsync();
+    transaction = true;
 
     // ユーザー情報の取得
     const userData = await db.getAsync(
@@ -208,11 +212,21 @@ const verifyToken = async (req, res) => {
     );
 
     if (!userData) {
+      await db.rollbackAsync();
       return res.status(401).json({
         status: 'error',
         message: '無効なトークンです'
       });
     }
+
+    // 最終アクセス日時を更新
+    await db.runAsync(
+      'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [userData.id]
+    );
+
+    await db.commitAsync();
+    transaction = false;
 
     res.json({
       status: 'success',
@@ -226,6 +240,9 @@ const verifyToken = async (req, res) => {
     });
   } catch (error) {
     console.error('トークン検証エラー:', error);
+    if (transaction) {
+      await db.rollbackAsync();
+    }
     res.status(500).json({
       status: 'error',
       message: 'サーバーエラーが発生しました'

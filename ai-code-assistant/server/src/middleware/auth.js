@@ -3,6 +3,7 @@ const db = require('../config/database');
 
 // JWTトークンの検証ミドルウェア
 const authenticateToken = async (req, res, next) => {
+  let transaction = false;
   try {
     // ヘッダーまたはクエリパラメータからトークンを取得
     const authHeader = req.headers['authorization'];
@@ -26,68 +27,49 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    try {
-      // トークンの検証
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log('デコードされたトークン:', decoded);
+    // トークンの検証
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('デコードされたトークン:', decoded);
 
-      // トランザクションを開始
-      await db.beginTransactionAsync();
+    // ユーザーの存在確認（トランザクションなし）
+    const user = await db.getAsync(
+      'SELECT id, email FROM users WHERE id = ?',
+      [decoded.id]
+    );
+    console.log('データベースのユーザー:', user);
 
-      // ユーザーの存在確認
-      const user = await db.getAsync(
-        'SELECT id, email FROM users WHERE id = ?',
-        [decoded.id]
-      );
-      console.log('データベースのユーザー:', user);
-
-      if (!user) {
-        await db.rollbackAsync();
-        console.log('ユーザーが見つかりません:', decoded.id);
-        return res.status(401).json({
-          status: 'error',
-          message: 'ユーザーが見つかりません'
-        });
-      }
-
-      // 最終アクセス日時を更新
-      await db.runAsync(
-        'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [user.id]
-      );
-
-      await db.commitAsync();
-
-      // リクエストにユーザー情報を追加
-      req.user = {
-        id: user.id,
-        email: user.email
-      };
-      console.log('認証成功:', req.user);
-
-      next();
-    } catch (jwtError) {
-      await db.rollbackAsync();
-      console.error('JWT検証エラー:', jwtError);
-
-      if (jwtError.name === 'TokenExpiredError') {
-        return res.status(401).json({
-          status: 'error',
-          message: '認証トークンの有効期限が切れています'
-        });
-      }
-
-      if (jwtError.name === 'JsonWebTokenError') {
-        return res.status(401).json({
-          status: 'error',
-          message: '無効な認証トークンです'
-        });
-      }
-
-      throw jwtError;
+    if (!user) {
+      console.log('ユーザーが見つかりません:', decoded.id);
+      return res.status(401).json({
+        status: 'error',
+        message: 'ユーザーが見つかりません'
+      });
     }
+
+    // リクエストにユーザー情報を追加
+    req.user = {
+      id: user.id,
+      email: user.email
+    };
+    console.log('認証成功:', req.user);
+
+    next();
   } catch (error) {
     console.error('認証エラー:', error);
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        status: 'error',
+        message: '認証トークンの有効期限が切れています'
+      });
+    }
+
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        status: 'error',
+        message: '無効な認証トークンです'
+      });
+    }
+
     return res.status(500).json({
       status: 'error',
       message: 'サーバーエラーが発生しました'

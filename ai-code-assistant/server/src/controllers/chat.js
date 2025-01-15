@@ -229,43 +229,32 @@ const sendMessage = async (req, res) => {
         if (llmSettings.model.includes('gemini')) {
           // Gemini APIの設定
           const genAI = new GoogleGenerativeAI(apiKey);
-          const model = genAI.getGenerativeModel({ 
+          // デバッグ情報：モデル情報の出力
+          console.log('Gemini Model Info:', {
             model: llmSettings.model,
+            apiKey: apiKey ? 'Set' : 'Not Set'
+          });
+
+          const model = genAI.getGenerativeModel({ 
+            model: process.env.GEMINI_MODEL_NAME || llmSettings.model,
             generationConfig: {
               temperature: 0.7,
               maxOutputTokens: 2000,
             }
           });
 
-          try {
-            // デバッグ情報：モデル情報の出力
-            console.log('Gemini Model Info:', {
-              model: llmSettings.model,
-              apiKey: apiKey ? 'Set' : 'Not Set'
-            });
+          // デバッグ情報：使用するモデル名を出力
+          console.log('Using Gemini Model:', process.env.GEMINI_MODEL_NAME || llmSettings.model);
 
+          try {
             // リクエストの内容を出力
             const requestContent = {
               contents: [{
                 role: 'user',
                 parts: [{
-                  text: systemPrompt
+                  text: `${systemPrompt}\n\n${message}`
                 }]
-              }, {
-                role: 'model',
-                parts: [{
-                  text: 'はい、承知しました。'
-                }]
-              }, {
-                role: 'user',
-                parts: [{
-                  text: message
-                }]
-              }],
-              generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 2000,
-              }
+              }]
             };
             console.log('Gemini Request:', JSON.stringify(requestContent, null, 2));
 

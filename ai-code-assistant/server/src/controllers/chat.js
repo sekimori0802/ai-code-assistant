@@ -369,7 +369,7 @@ const getChatHistory = async (req, res) => {
 
     // チャットルームのメッセージを取得
     const messages = await db.allAsync(`
-      SELECT m.*, u.email as user_email
+      SELECT m.*, u.email as user_email, u.name as user_name
       FROM chat_room_messages m
       LEFT JOIN users u ON m.user_id = u.id
       WHERE m.room_id = ?
@@ -383,6 +383,7 @@ const getChatHistory = async (req, res) => {
           id: msg.id,
           user_id: msg.user_id,
           user_email: msg.user_email || 'system',
+          user_name: msg.user_name || 'AI',
           message: msg.message,
           created_at: msg.created_at
         }))

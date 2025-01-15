@@ -53,7 +53,8 @@ const ChatInterface = ({ roomId }) => {
           content: item.message,
           timestamp: item.created_at,
           userId: item.user_id,
-          userEmail: item.user_email
+          userEmail: item.user_email,
+          userName: item.user_name
         }));
         setMessages(formattedHistory);
       } else {
@@ -249,7 +250,7 @@ const ChatInterface = ({ roomId }) => {
             >
               <div className="flex flex-col">
                 <div className="text-sm text-gray-500 mb-1">
-                  {message.type === 'user' ? message.userEmail : 'AI Assistant'}
+                  {message.type === 'user' ? message.userName || message.userEmail : 'AI Assistant'}
                 </div>
                 <div
                   className={`max-w-[70%] rounded-lg p-4 shadow-sm ${

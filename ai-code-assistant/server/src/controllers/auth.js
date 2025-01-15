@@ -5,7 +5,7 @@ const db = require('../config/database');
 
 // ユーザー登録
 const register = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, name } = req.body;
 
   try {
     await db.beginTransactionAsync();
@@ -31,8 +31,8 @@ const register = async (req, res) => {
     // ユーザーの作成
     const userId = uuidv4();
     await db.runAsync(
-      'INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)',
-      [userId, email, hashedPassword]
+      'INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)',
+      [userId, email, hashedPassword, name]
     );
 
     // JWTトークンの生成
@@ -58,6 +58,7 @@ const register = async (req, res) => {
         user: {
           id: user.id,
           email: user.email,
+          name: user.name,
           created_at: user.created_at
         }
       }
@@ -83,7 +84,7 @@ const login = async (req, res) => {
     console.log('ログイン処理開始:', { email });
 
     const user = await db.getAsync(
-      'SELECT * FROM users WHERE email = ?',
+      'SELECT id, email, name, password_hash, created_at FROM users WHERE email = ?',
       [email]
     );
 
@@ -135,6 +136,7 @@ const login = async (req, res) => {
         user: {
           id: user.id,
           email: user.email,
+          name: user.name,
           created_at: user.created_at
         }
       }
@@ -207,7 +209,7 @@ const verifyToken = async (req, res) => {
 
     // ユーザー情報の取得
     const userData = await db.getAsync(
-      'SELECT id, email, created_at FROM users WHERE id = ?',
+      'SELECT id, email, name, created_at FROM users WHERE id = ?',
       [user.id]
     );
 
@@ -234,6 +236,7 @@ const verifyToken = async (req, res) => {
         user: {
           id: userData.id,
           email: userData.email,
+          name: userData.name,
           created_at: userData.created_at
         }
       }

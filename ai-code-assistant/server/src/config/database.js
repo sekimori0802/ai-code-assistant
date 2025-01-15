@@ -57,12 +57,19 @@ async function createDefaultRoom(db) {
 }
 
 // データベース接続の初期化
-const db = new sqlite3.Database(dbPath, async (err) => {
+const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, async (err) => {
   if (err) {
     console.error('データベース接続エラー:', err.message);
   } else {
     console.log('データベースに接続しました');
     try {
+      // WALモードを有効化
+      await db.runAsync('PRAGMA journal_mode = WAL');
+      // 外部キー制約を有効化
+      await db.runAsync('PRAGMA foreign_keys = ON');
+      // 同時実行制御を改善
+      await db.runAsync('PRAGMA busy_timeout = 5000');
+
       await initializeTables(db);
       await createDefaultAdmin(db);
       await createDefaultRoom(db);
@@ -73,6 +80,9 @@ const db = new sqlite3.Database(dbPath, async (err) => {
     }
   }
 });
+
+// 接続プールの設定
+db.configure('busyTimeout', 5000);
 
 // デフォルト管理者ユーザーの作成
 async function createDefaultAdmin(db) {
@@ -223,9 +233,14 @@ db.allAsync = function (sql, params) {
 // トランザクション用のPromiseラッパー
 db.beginTransactionAsync = function () {
   return new Promise((resolve, reject) => {
-    this.run('BEGIN TRANSACTION', (err) => {
-      if (err) reject(err);
-      else resolve();
+    this.run('BEGIN IMMEDIATE TRANSACTION', (err) => {
+      if (err) {
+        console.error('トランザクション開始エラー:', err);
+        reject(err);
+      } else {
+        console.log('トランザクションを開始しました');
+        resolve();
+      }
     });
   });
 };
@@ -233,8 +248,13 @@ db.beginTransactionAsync = function () {
 db.commitAsync = function () {
   return new Promise((resolve, reject) => {
     this.run('COMMIT', (err) => {
-      if (err) reject(err);
-      else resolve();
+      if (err) {
+        console.error('トランザクションコミットエラー:', err);
+        reject(err);
+      } else {
+        console.log('トランザクションをコミットしました');
+        resolve();
+      }
     });
   });
 };
@@ -242,11 +262,28 @@ db.commitAsync = function () {
 db.rollbackAsync = function () {
   return new Promise((resolve, reject) => {
     this.run('ROLLBACK', (err) => {
-      if (err) reject(err);
-      else resolve();
+      if (err) {
+        console.error('トランザクションロールバックエラー:', err);
+        reject(err);
+      } else {
+        console.log('トランザクションをロールバックしました');
+        resolve();
+      }
     });
   });
 };
+
+// データベース接続のクリーンアップ
+process.on('SIGINT', () => {
+  db.close((err) => {
+    if (err) {
+      console.error('データベース接続のクローズに失敗:', err);
+    } else {
+      console.log('データベース接続をクローズしました');
+    }
+    process.exit(0);
+  });
+});
 
 // データベースの状態をログに出力
 db.logState = async function () {

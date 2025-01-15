@@ -188,13 +188,13 @@ const sendMessage = async (req, res) => {
 
       // OpenAI APIを使用して応答を生成（ストリーミングモード）
       const stream = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
         temperature: 0.7,
-        max_tokens: 4000,
+        max_tokens: 2000,
         stream: true,
       });
 
@@ -202,6 +202,37 @@ const sendMessage = async (req, res) => {
 
       // AIメッセージのIDを生成
       const aiMessageId = uuidv4();
+
+      // トークルームの存在確認
+      const room = await db.getAsync(
+        'SELECT * FROM chat_rooms WHERE id = ?',
+        [roomId]
+      );
+
+      if (!room) {
+        await db.rollbackAsync();
+        throw new Error('チャットルームが見つかりません');
+      }
+
+      // システムユーザーの存在確認
+      const systemUser = await db.getAsync(
+        'SELECT id FROM users WHERE id = ?',
+        ['system']
+      );
+
+      if (!systemUser) {
+        // システムユーザーの作成
+        await db.runAsync(
+          'INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, ?)',
+          ['system', 'system@example.com', '', 1]
+        );
+
+        // システムユーザーをチャットルームのメンバーとして追加
+        await db.runAsync(
+          'INSERT OR IGNORE INTO chat_room_members (room_id, user_id) VALUES (?, ?)',
+          [roomId, 'system']
+        );
+      }
 
       // 空のAIメッセージを作成
       await db.runAsync(
@@ -211,48 +242,49 @@ const sendMessage = async (req, res) => {
 
       await db.commitAsync();
 
-      // ストリームからの応答を処理
-      for await (const chunk of stream) {
-        const content = chunk.choices[0]?.delta?.content || '';
-        if (content) {
-          fullResponse += content;
-          
-          try {
-            await db.beginTransactionAsync();
+      await db.beginTransactionAsync();
 
-            // データベースのメッセージを更新
-            await db.runAsync(
-              'UPDATE chat_room_messages SET message = ? WHERE id = ?',
-              [fullResponse, aiMessageId]
-            );
+      try {
+        let chunkBuffer = '';
+        let lastUpdateTime = Date.now();
+        const UPDATE_INTERVAL = 500; // 500ミリ秒ごとにデータベースを更新
 
-            // トークルームの更新日時を更新
-            await db.runAsync(
-              'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-              [roomId]
-            );
+        // ストリームからの応答を処理
+        for await (const chunk of stream) {
+          const content = chunk.choices[0]?.delta?.content || '';
+          if (content) {
+            fullResponse += content;
+            chunkBuffer += content;
 
-            await db.commitAsync();
-
-            // クライアントにチャンクを送信
+            // バッファリングされたチャンクをクライアントに送信
             res.write(`data: ${JSON.stringify({
               type: 'ai_response_chunk',
               data: { 
                 id: aiMessageId,
-                content,
+                content: chunkBuffer,
                 fullContent: fullResponse,
                 timestamp: timestamp
               }
             })}\n\n`);
-          } catch (error) {
-            console.error('チャンク処理エラー:', error);
-            await db.rollbackAsync();
+
+            // 一定間隔でデータベースを更新
+            const currentTime = Date.now();
+            if (currentTime - lastUpdateTime >= UPDATE_INTERVAL) {
+              await db.runAsync(
+                'UPDATE chat_room_messages SET message = ? WHERE id = ?',
+                [fullResponse, aiMessageId]
+              );
+              lastUpdateTime = currentTime;
+              chunkBuffer = '';
+            }
           }
         }
-      }
 
-      try {
-        await db.beginTransactionAsync();
+        // 最終的なメッセージを保存
+        await db.runAsync(
+          'UPDATE chat_room_messages SET message = ? WHERE id = ?',
+          [fullResponse, aiMessageId]
+        );
 
         // トークルームの更新日時を更新
         await db.runAsync(
@@ -274,9 +306,9 @@ const sendMessage = async (req, res) => {
 
         res.end();
       } catch (error) {
-        console.error('完了処理エラー:', error);
+        console.error('ストリーミング処理エラー:', error);
         await db.rollbackAsync();
-        res.end();
+        throw error;
       }
     } catch (error) {
       console.error('OpenAI APIエラー:', error);

@@ -247,26 +247,31 @@ const ChatInterface = ({ roomId }) => {
                 message.type === 'user' ? 'justify-end' : 'justify-start'
               }`}
             >
-              <div
-                className={`max-w-[70%] rounded-lg p-4 shadow-sm ${
-                  message.type === 'user'
-                    ? 'bg-primary-100 text-primary-900 border border-primary-200'
-                    : message.type === 'error'
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-white text-gray-800'
-                }`}
-              >
-                <MessageContent content={message.content} />
+              <div className="flex flex-col">
+                <div className="text-sm text-gray-500 mb-1">
+                  {message.type === 'user' ? message.userEmail : 'AI Assistant'}
+                </div>
                 <div
-                  className={`text-xs mt-2 ${
+                  className={`max-w-[70%] rounded-lg p-4 shadow-sm ${
                     message.type === 'user'
-                      ? 'text-primary-600'
+                      ? 'bg-primary-100 text-primary-900 border border-primary-200'
                       : message.type === 'error'
-                      ? 'text-red-500'
-                      : 'text-gray-500'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-white text-gray-800'
                   }`}
                 >
-                  {new Date(message.timestamp).toLocaleString()}
+                  <MessageContent content={message.content} />
+                  <div
+                    className={`text-xs mt-2 ${
+                      message.type === 'user'
+                        ? 'text-primary-600'
+                        : message.type === 'error'
+                        ? 'text-red-500'
+                        : 'text-gray-500'
+                    }`}
+                  >
+                    {new Date(message.timestamp).toLocaleString()}
+                  </div>
                 </div>
               </div>
             </div>
@@ -288,23 +293,25 @@ const ChatInterface = ({ roomId }) => {
       <div className="border-t bg-white p-4 shadow-lg">
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
           <div className="flex space-x-4">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  if (input.trim() && !isLoading && isAuthenticated && roomId) {
-                    handleSubmit(e);
+            <div className="relative flex-1">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (input.trim() && !isLoading && isAuthenticated && roomId) {
+                      handleSubmit(e);
+                    }
                   }
-                }
-              }}
-              placeholder="メッセージを入力してください... (Shift + Enter で改行)"
-              className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 resize-none min-h-[2.5rem] max-h-32 overflow-y-auto"
-              disabled={isLoading || !isAuthenticated || !roomId}
-              rows={1}
-              style={{ height: 'auto', minHeight: '2.5rem' }}
-            />
+                }}
+                placeholder="メッセージを入力してください... (Shift + Enter で改行, @AI でAIを呼び出し)"
+                className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:bg-gray-100 resize-none min-h-[2.5rem] max-h-32 overflow-y-auto"
+                disabled={isLoading || !isAuthenticated || !roomId}
+                rows={1}
+                style={{ height: 'auto', minHeight: '2.5rem' }}
+              />
+            </div>
             <button
               type="submit"
               disabled={isLoading || !isAuthenticated || !roomId || !input.trim()}

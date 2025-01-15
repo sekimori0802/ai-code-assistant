@@ -19,6 +19,19 @@ module.exports = {
           900: '#0c4a6e',
         },
       },
+      animation: {
+        'fade-in-out': 'fadeIn 0.3s ease-in, fadeOut 0.3s ease-out 1.7s forwards',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeOut: {
+          '0%': { opacity: '1', transform: 'translateY(0)' },
+          '100%': { opacity: '0', transform: 'translateY(-10px)' },
+        },
+      },
     },
   },
   plugins: [

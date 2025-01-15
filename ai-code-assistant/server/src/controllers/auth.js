@@ -77,6 +77,8 @@ const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    await db.beginTransactionAsync();
+
     // ユーザーの検索
     console.log('ログイン処理開始:', { email });
 
@@ -88,6 +90,7 @@ const login = async (req, res) => {
     console.log('ユーザー検索結果:', user);
 
     if (!user) {
+      await db.rollbackAsync();
       return res.status(401).json({
         status: 'error',
         message: 'メールアドレスまたはパスワードが正しくありません'
@@ -98,6 +101,7 @@ const login = async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password_hash);
     console.log('パスワード検証結果:', validPassword);
     if (!validPassword) {
+      await db.rollbackAsync();
       return res.status(401).json({
         status: 'error',
         message: 'メールアドレスまたはパスワードが正しくありません'
@@ -120,6 +124,8 @@ const login = async (req, res) => {
       'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [user.id]
     );
+
+    await db.commitAsync();
 
     res.json({
       status: 'success',

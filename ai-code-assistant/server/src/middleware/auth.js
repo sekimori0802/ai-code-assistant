@@ -31,6 +31,9 @@ const authenticateToken = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       console.log('デコードされたトークン:', decoded);
 
+      // トランザクションを開始
+      await db.beginTransactionAsync();
+
       // ユーザーの存在確認
       const user = await db.getAsync(
         'SELECT id, email FROM users WHERE id = ?',
@@ -39,12 +42,21 @@ const authenticateToken = async (req, res, next) => {
       console.log('データベースのユーザー:', user);
 
       if (!user) {
+        await db.rollbackAsync();
         console.log('ユーザーが見つかりません:', decoded.id);
         return res.status(401).json({
           status: 'error',
           message: 'ユーザーが見つかりません'
         });
       }
+
+      // 最終アクセス日時を更新
+      await db.runAsync(
+        'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [user.id]
+      );
+
+      await db.commitAsync();
 
       // リクエストにユーザー情報を追加
       req.user = {
@@ -55,6 +67,7 @@ const authenticateToken = async (req, res, next) => {
 
       next();
     } catch (jwtError) {
+      await db.rollbackAsync();
       console.error('JWT検証エラー:', jwtError);
 
       if (jwtError.name === 'TokenExpiredError') {

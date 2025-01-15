@@ -28,6 +28,11 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/chat-rooms', chatRoomRoutes);
 
+// ルートエンドポイントの追加
+app.get('/', (req, res) => {
+  res.send('サーバーは正常に動作しています');
+});
+
 // エラーハンドリング
 app.use((err, req, res, next) => {
   console.error('サーバーエラー:', err);

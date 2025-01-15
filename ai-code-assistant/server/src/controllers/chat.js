@@ -91,6 +91,37 @@ const sendMessage = async (req, res) => {
       return;
     }
 
+    // トークルームのメンバー数を取得
+    const memberCount = await db.getAsync(
+      'SELECT COUNT(user_id) as count FROM chat_room_members WHERE room_id = ?',
+      [roomId]
+    );
+
+    // AIモデルを呼び出す条件を確認
+    const isSingleUser = memberCount.count === 1;
+    const hasMention = message.includes('@AI');
+    const shouldCallAI = isSingleUser || (!isSingleUser && hasMention);
+
+    if (!shouldCallAI) {
+      // AIを呼び出さない場合はユーザーメッセージのみを保存
+      const userMessageId = uuidv4();
+      await db.runAsync(
+        'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
+        [userMessageId, roomId, userId, message, new Date().toISOString()]
+      );
+      await db.commitAsync();
+      res.write(`data: ${JSON.stringify({
+        type: 'user_message_saved',
+        data: {
+          id: userMessageId,
+          message: message,
+          timestamp: new Date().toISOString()
+        }
+      })}\n\n`);
+      res.end();
+      return;
+    }
+
     // ユーザーがルームのメンバーであることを確認
     const membership = await db.getAsync(
       'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',

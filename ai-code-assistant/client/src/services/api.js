@@ -7,8 +7,7 @@ const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
-  },
-  withCredentials: true
+  }
 });
 
 // リクエストインターセプター
@@ -123,11 +122,11 @@ export const chat = {
   deleteMessage: (id, roomId) => apiClient.delete(`/api/chat/history/${id}?roomId=${roomId}`),
   
   // チャットルーム管理
-  createRoom: (data) => apiClient.post('/api/chat/rooms', data),
-  getRooms: () => apiClient.get('/api/chat/rooms'),
-  getRoom: (roomId) => apiClient.get(`/api/chat/rooms/${roomId}`),
-  updateRoom: (roomId, data) => apiClient.put(`/api/chat/rooms/${roomId}`, data),
-  deleteRoom: (roomId) => apiClient.delete(`/api/chat/rooms/${roomId}`),
+  createRoom: (data) => apiClient.post('/api/chat-rooms', data),
+  getRooms: () => apiClient.get('/api/chat-rooms'),
+  getRoom: (roomId) => apiClient.get(`/api/chat-rooms/${roomId}`),
+  updateRoom: (roomId, data) => apiClient.put(`/api/chat-rooms/${roomId}`, data),
+  deleteRoom: (roomId) => apiClient.delete(`/api/chat-rooms/${roomId}`),
 };
 
 // 管理者用API

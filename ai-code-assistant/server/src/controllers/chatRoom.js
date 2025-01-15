@@ -72,63 +72,24 @@ async function getChatRooms(req, res) {
 
     console.log('トークルーム検索開始:', { roomId: req.query.roomId, userId });
 
-    try {
-      const rooms = await db.allAsync(`
-        SELECT r.*, COUNT(m.user_id) as member_count,
-               (SELECT message 
-                FROM chat_room_messages 
-                WHERE room_id = r.id 
-                ORDER BY created_at DESC 
-                LIMIT 1) as last_message
-        FROM chat_rooms r
-        LEFT JOIN chat_room_members m ON r.id = m.room_id
-        WHERE r.id = ?
-        GROUP BY r.id
-        ORDER BY r.updated_at DESC
-      `, [req.query.roomId || '', userId]);
-
-      console.log('トークルーム検索結果:', rooms);
-
-      res.json({
-        status: 'success',
-        data: {
-          rooms: rooms.map(room => ({
-            id: room.id,
-            name: room.name,
-            created_by: room.created_by,
-            ai_type: room.ai_type,
-            member_count: room.member_count,
-            last_message: room.last_message,
-            created_at: room.created_at,
-            updated_at: room.updated_at
-          }))
-        }
-      });
-    } catch (error) {
-      console.error('トークルーム検索エラー:', error);
-      res.status(500).json({
-        status: 'error',
-        message: 'トークルームの取得に失敗しました'
-      });
-    }
-
-    console.log('トークルーム検索結果:', rooms);
-
-    res.json({
-      status: 'success',
-      data: {
-        rooms: rooms.map(room => ({
-          id: room.id,
-          name: room.name,
-          created_by: room.created_by,
-          ai_type: room.ai_type,
-          member_count: room.member_count,
-          last_message: room.last_message,
-          created_at: room.created_at,
-          updated_at: room.updated_at
-        }))
-      }
-    });
+    const rooms = await db.allAsync(`
+      SELECT r.*, COUNT(m.user_id) as member_count,
+             (SELECT message 
+              FROM chat_room_messages 
+              WHERE room_id = r.id 
+              ORDER BY created_at DESC 
+              LIMIT 1) as last_message
+      FROM chat_rooms r
+      LEFT JOIN chat_room_members m ON r.id = m.room_id
+      WHERE EXISTS (
+        SELECT 1 
+        FROM chat_room_members 
+        WHERE room_id = r.id 
+        AND user_id = ?
+      )
+      GROUP BY r.id
+      ORDER BY r.updated_at DESC
+    `, [userId]);
 
     console.log('トークルーム検索結果:', rooms);
 

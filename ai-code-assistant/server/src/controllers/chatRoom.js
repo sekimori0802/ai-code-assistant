@@ -217,11 +217,23 @@ async function sendMessage(req, res) {
     );
 
     // AIモデルを呼び出す条件を確認
-    const shouldCallAI = memberCount.count === 1 || message.includes('@AI');
+    const isSingleUser = memberCount.count === 1;
+    const hasMention = message.includes('@AI');
+    const shouldCallAI = isSingleUser || (!isSingleUser && hasMention);
 
     if (shouldCallAI) {
-      console.log('AIモデルを呼び出します');
+      console.log('AIモデルを呼び出します', {
+        isSingleUser,
+        hasMention,
+        memberCount: memberCount.count
+      });
       // AIモデル呼び出しロジックをここに追加
+    } else {
+      console.log('AIモデルを呼び出しません', {
+        isSingleUser,
+        hasMention,
+        memberCount: memberCount.count
+      });
     }
 
     // メッセージを保存

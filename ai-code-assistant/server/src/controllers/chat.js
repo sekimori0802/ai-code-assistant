@@ -238,29 +238,15 @@ const sendMessage = async (req, res) => {
           });
 
           try {
-            const chat = model.startChat({
-              history: [
-                {
-                  role: 'user',
-                  parts: [{ text: systemPrompt }]
-                }
-              ]
-            });
-
-            const result = await chat.sendMessage(message, {
-              temperature: 0.7,
-            });
-
-            if (!result.response) {
+            const prompt = `${systemPrompt}\n\n${message}`;
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            
+            if (!response || !response.text) {
               throw new Error('Geminiからの応答が空です');
             }
 
-            const response = await result.response;
-            const text = response.text();
-            if (!text) {
-              throw new Error('Geminiからの応答にテキストが含まれていません');
-            }
-
+            const text = response.text;
             // チャンクごとにクライアントに送信（擬似ストリーミング）
             const chunks = text.match(/.{1,20}/g) || [text];
             let accumulatedText = '';

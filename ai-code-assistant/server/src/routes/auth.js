@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, resetPassword } = require('../controllers/auth');
+const { register, login, resetPassword, verifyToken } = require('../controllers/auth');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 
 // 認証が不要なルート
@@ -11,18 +11,7 @@ router.post('/login', login);
 router.use(authenticateToken);
 
 // トークン検証用エンドポイント
-router.get('/verify', (req, res) => {
-  // authenticateTokenミドルウェアを通過していれば、req.userが設定されている
-  res.json({
-    status: 'success',
-    data: {
-      user: {
-        id: req.user.id,
-        email: req.user.email
-      }
-    }
-  });
-});
+router.get('/verify', verifyToken);
 
 // パスワードリセット（管理者のみ）
 router.post('/reset-password', isAdmin, resetPassword);

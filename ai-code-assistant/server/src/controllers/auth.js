@@ -189,8 +189,47 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// トークン検証
+const verifyToken = async (req, res) => {
+  try {
+    const user = req.user;
+    console.log('トークン検証リクエスト:', { user });
+
+    // ユーザー情報の取得
+    const userData = await db.getAsync(
+      'SELECT id, email, created_at FROM users WHERE id = ?',
+      [user.id]
+    );
+
+    if (!userData) {
+      return res.status(401).json({
+        status: 'error',
+        message: '無効なトークンです'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        user: {
+          id: userData.id,
+          email: userData.email,
+          created_at: userData.created_at
+        }
+      }
+    });
+  } catch (error) {
+    console.error('トークン検証エラー:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'サーバーエラーが発生しました'
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
-  resetPassword
+  resetPassword,
+  verifyToken
 };

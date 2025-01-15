@@ -160,36 +160,38 @@ const ChatInterface = ({ roomId }) => {
               setIsLoading(false);
               return;
             }
-          } else if (data.type === 'ai_response_chunk') {
-            // AIの応答を段階的に更新
-            setMessages(prev => {
-              const newMessages = [...prev];
-              const aiMessageIndex = newMessages.length - 1;
-              if (aiMessageIndex >= 0) {
-                newMessages[aiMessageIndex] = {
-                  ...newMessages[aiMessageIndex],
-                  content: newMessages[aiMessageIndex].content + data.data.content
-                };
-              }
-              return newMessages;
-            });
-          } else if (data.type === 'ai_response_complete') {
-            // ストリーミング完了時の処理
-            setMessages(prev => {
-              const newMessages = [...prev];
-              const aiMessageIndex = newMessages.length - 1;
-              if (aiMessageIndex >= 0) {
-                newMessages[aiMessageIndex] = {
-                  type: 'ai',
-                  content: data.data.message,
-                  timestamp: data.data.timestamp,
-                  userId: 'system',
-                  userEmail: 'System',
-                  isStreaming: false
-                };
-              }
-              return newMessages;
-            });
+          } else if (shouldCallAI) {
+            if (data.type === 'ai_response_chunk') {
+              // AIの応答を段階的に更新
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const aiMessageIndex = newMessages.length - 1;
+                if (aiMessageIndex >= 0 && newMessages[aiMessageIndex].type === 'ai') {
+                  newMessages[aiMessageIndex] = {
+                    ...newMessages[aiMessageIndex],
+                    content: newMessages[aiMessageIndex].content + data.data.content
+                  };
+                }
+                return newMessages;
+              });
+            } else if (data.type === 'ai_response_complete') {
+              // ストリーミング完了時の処理
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const aiMessageIndex = newMessages.length - 1;
+                if (aiMessageIndex >= 0 && newMessages[aiMessageIndex].type === 'ai') {
+                  newMessages[aiMessageIndex] = {
+                    type: 'ai',
+                    content: data.data.message,
+                    timestamp: data.data.timestamp,
+                    userId: 'system',
+                    userEmail: 'System',
+                    isStreaming: false
+                  };
+                }
+                return newMessages;
+              });
+            }
           }
         }
       , roomData?.ai_type);

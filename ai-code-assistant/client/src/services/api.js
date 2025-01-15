@@ -49,11 +49,42 @@ apiClient.interceptors.response.use(
       message: error.message
     });
 
+    const originalRequest = error.config;
+
+    // ネットワークエラーの場合はリトライ
+    if (!error.response && !originalRequest._retry) {
+      originalRequest._retry = true;
+      originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
+
+      if (originalRequest._retryCount <= 3) {
+        console.log(`APIリクエストをリトライ (${originalRequest._retryCount}/3)`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * originalRequest._retryCount));
+        return apiClient(originalRequest);
+      }
+    }
+
     // 認証エラーの場合
-    if (error.response?.status === 401) {
-      console.log('認証エラーを検出、ログアウト処理を実行');
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      // トークン検証エンドポイントの場合は直接ログアウト
+      if (originalRequest.url === '/api/auth/verify') {
+        console.log('トークン検証に失敗、ログアウト処理を実行');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
+
+      try {
+        // トークンの再検証を試みる
+        await apiClient.get('/api/auth/verify');
+        return apiClient(originalRequest);
+      } catch (verifyError) {
+        console.log('トークン再検証に失敗、ログアウト処理を実行');
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return Promise.reject(error);
+      }
     }
 
     return Promise.reject(error);

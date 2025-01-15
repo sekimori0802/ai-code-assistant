@@ -9,14 +9,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const [retryCount, setRetryCount] = useState(0);
-  const maxRetries = 3;
-
   useEffect(() => {
     let mounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
     let retryTimeout;
 
-    const initializeAuth = async () => {
+    const verifyToken = async () => {
       try {
         const token = localStorage.getItem('token');
         console.log('保存されているトークン:', token ? '存在します' : '存在しません');
@@ -29,55 +28,51 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        try {
-          // トークンの検証
-          console.log('トークンを検証中...');
-          const response = await authApi.verifyToken();
-          console.log('トークン検証結果:', response.data);
+        // トークンの検証
+        console.log('トークンを検証中...');
+        const response = await authApi.verifyToken();
+        console.log('トークン検証結果:', response.data);
 
-          if (response.data?.status === 'success' && response.data.data?.user) {
-            console.log('トークンが有効、ユーザー情報を設定:', response.data.data.user);
-            if (mounted) {
-              setUser(response.data.data.user);
-              setRetryCount(0); // 成功したらリトライカウントをリセット
-            }
-          } else {
-            console.log('トークン検証に失敗');
-            throw new Error('Invalid token verification response');
+        if (response.data?.status === 'success' && response.data.data?.user) {
+          console.log('トークンが有効、ユーザー情報を設定:', response.data.data.user);
+          if (mounted) {
+            setUser(response.data.data.user);
+            setLoading(false);
           }
-        } catch (error) {
-          console.error('トークン検証エラー:', error);
-          
-          // リトライ処理
-          if (retryCount < maxRetries && mounted) {
-            console.log(`認証リトライ (${retryCount + 1}/${maxRetries})`);
-            setRetryCount(prev => prev + 1);
-            retryTimeout = setTimeout(() => {
-              initializeAuth();
-            }, 1000 * (retryCount + 1)); // 徐々に間隔を広げる
-            return;
-          }
-
+        } else {
+          console.log('トークン検証に失敗');
+          throw new Error('Invalid token verification response');
+        }
+      } catch (error) {
+        console.error('トークン検証エラー:', error);
+        
+        if (error.response?.status === 401) {
           localStorage.removeItem('token');
           if (mounted) {
             setUser(null);
+            setLoading(false);
             navigate('/login');
           }
+          return;
         }
-      } catch (error) {
-        console.error('認証初期化エラー:', error);
-        localStorage.removeItem('token');
+
+        // ネットワークエラーの場合はリトライ
+        if (retryCount < maxRetries && mounted) {
+          console.log(`認証リトライ (${retryCount + 1}/${maxRetries})`);
+          retryCount++;
+          retryTimeout = setTimeout(verifyToken, 1000 * retryCount);
+          return;
+        }
+
         if (mounted) {
           setUser(null);
-        }
-      } finally {
-        if (mounted) {
           setLoading(false);
+          navigate('/login');
         }
       }
     };
 
-    initializeAuth();
+    verifyToken();
 
     return () => {
       mounted = false;

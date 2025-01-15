@@ -48,7 +48,7 @@ npm run dev
 
 ## アクセス方法
 
-- フロントエンド: http://localhost:3001
+- フロントエンド: http://localhost:3000
 - バックエンドAPI: http://localhost:5000
 
 ## 開発者向け情報

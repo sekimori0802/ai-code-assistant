@@ -117,37 +117,30 @@ const ChatInterface = ({ roomId }) => {
     try {
       console.log('メッセージを送信中:', { message: userMessage.content, roomId });
       
+      // メンション判定
+      const hasMention = userMessage.content.includes('@AI') || userMessage.content.includes('＠AI');
+      const shouldCallAI = roomData?.member_count === 1 || hasMention;
+
       await api.chat.sendMessage(
         userMessage.content,
         roomId,
         (data) => {
-          // コールバック処理
           if (data.type === 'error') {
             console.error('AIエラー:', data.data);
             setError(data.data.message || 'AIの応答生成中にエラーが発生しました');
-            // エラーメッセージを表示
+            // エラーメッセージを表示し、AIの応答メッセージを削除
             setMessages(prev => {
-              const newMessages = [...prev];
-              const lastIndex = newMessages.length - 1;
-              if (lastIndex >= 0) {
-                newMessages[lastIndex] = {
-                  type: 'error',
-                  content: data.data.message || 'AIの応答生成中にエラーが発生しました',
-                  timestamp: new Date().toISOString(),
-                  userId: 'system',
-                  userEmail: 'System'
-                };
-              }
+              const newMessages = prev.slice(0, -1); // AIの応答メッセージを削除
               return newMessages;
             });
             return;
           }
 
           if (data.type === 'user_message_saved') {
-            // ユーザーメッセージを更新
+            // ユーザーメッセージを更新（AIの応答がない場合）
             setMessages(prev => {
               const newMessages = [...prev];
-              const userMessageIndex = newMessages.length - 2;
+              const userMessageIndex = newMessages.length - (shouldCallAI ? 2 : 1);
               if (userMessageIndex >= 0) {
                 newMessages[userMessageIndex] = {
                   type: 'user',
@@ -159,6 +152,12 @@ const ChatInterface = ({ roomId }) => {
               }
               return newMessages;
             });
+            // AIの応答がない場合はここで終了
+            if (!shouldCallAI) {
+              setMessages(prev => prev.slice(0, -1)); // AIの応答メッセージを削除
+              setIsLoading(false);
+              return;
+            }
           } else if (data.type === 'ai_response_chunk') {
             // AIの応答を段階的に更新
             setMessages(prev => {

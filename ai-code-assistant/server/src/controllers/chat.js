@@ -1,11 +1,12 @@
 const { v4: uuidv4 } = require('uuid');
 const OpenAI = require('openai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Anthropic = require('@anthropic-ai/sdk');
 const db = require('../config/database');
 
-// OpenAI APIの設定
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// APIクライアントの初期化
+const openai = new OpenAI();
+const anthropic = new Anthropic();
 
 // AIタイプごとのシステムプロンプト
 const AI_TYPE_PROMPTS = {
@@ -186,53 +187,35 @@ const sendMessage = async (req, res) => {
       // クエリパラメータのAIタイプを優先し、なければルームのAIタイプを使用
       const systemPrompt = AI_TYPE_PROMPTS[aiType || room.ai_type || 'code_generation'];
 
-      // OpenAI APIを使用して応答を生成（ストリーミングモード）
-      const stream = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
-        ],
-        temperature: 0.7,
-        max_tokens: 2000,
-        stream: true,
-      });
-
-      let fullResponse = '';
-
-      // AIメッセージのIDを生成
-      const aiMessageId = uuidv4();
-
-      // トークルームの存在確認
-      const room = await db.getAsync(
-        'SELECT * FROM chat_rooms WHERE id = ?',
+      // チャットルームのLLMモデル情報を取得
+      const llmSettings = await db.getAsync(
+        `SELECT ls.* 
+         FROM llm_settings ls 
+         JOIN chat_rooms cr ON ls.id = cr.llm_model_id 
+         WHERE cr.id = ?`,
         [roomId]
       );
 
-      if (!room) {
-        await db.rollbackAsync();
-        throw new Error('チャットルームが見つかりません');
+      if (!llmSettings) {
+        throw new Error('LLMモデルの設定が見つかりません');
       }
 
-      // システムユーザーの存在確認
-      const systemUser = await db.getAsync(
-        'SELECT id FROM users WHERE id = ?',
-        ['system']
-      );
-
-      if (!systemUser) {
-        // システムユーザーの作成
-        await db.runAsync(
-          'INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, ?)',
-          ['system', 'system@example.com', '', 1]
-        );
-
-        // システムユーザーをチャットルームのメンバーとして追加
-        await db.runAsync(
-          'INSERT OR IGNORE INTO chat_room_members (room_id, user_id) VALUES (?, ?)',
-          [roomId, 'system']
-        );
+      // 環境変数からAPIキーを取得
+      let apiKey;
+      if (llmSettings.model.includes('gemini')) {
+        apiKey = process.env.GOOGLE_API_KEY;
+      } else if (llmSettings.model.includes('claude')) {
+        apiKey = process.env.ANTHROPIC_API_KEY;
+      } else {
+        apiKey = process.env.OPENAI_API_KEY;
       }
+
+      if (!apiKey) {
+        throw new Error('APIキーが設定されていません');
+      }
+
+      // AIメッセージのIDを生成
+      const aiMessageId = uuidv4();
 
       // 空のAIメッセージを作成
       await db.runAsync(
@@ -240,47 +223,105 @@ const sendMessage = async (req, res) => {
         [aiMessageId, roomId, 'system', '', timestamp]
       );
 
-      await db.commitAsync();
-
-      await db.beginTransactionAsync();
+      let fullResponse = '';
 
       try {
-        let chunkBuffer = '';
-        let lastUpdateTime = Date.now();
-        const UPDATE_INTERVAL = 500; // 500ミリ秒ごとにデータベースを更新
+        if (llmSettings.model.includes('gemini')) {
+          // Gemini APIの設定
+          const genAI = new GoogleGenerativeAI(apiKey);
+          const model = genAI.getGenerativeModel({ model: llmSettings.model });
+          try {
+            const result = await model.generateContent({
+              contents: [{ text: `${systemPrompt}\n\n${message}` }]
+            });
 
-        // ストリームからの応答を処理
-        for await (const chunk of stream) {
-          const content = chunk.choices[0]?.delta?.content || '';
-          if (content) {
-            fullResponse += content;
-            chunkBuffer += content;
-
-            // バッファリングされたチャンクをクライアントに送信
-            res.write(`data: ${JSON.stringify({
-              type: 'ai_response_chunk',
-              data: { 
-                id: aiMessageId,
-                content: chunkBuffer,
-                fullContent: fullResponse,
-                timestamp: timestamp
-              }
-            })}\n\n`);
-
-            // 一定間隔でデータベースを更新
-            const currentTime = Date.now();
-            if (currentTime - lastUpdateTime >= UPDATE_INTERVAL) {
-              await db.runAsync(
-                'UPDATE chat_room_messages SET message = ? WHERE id = ?',
-                [fullResponse, aiMessageId]
-              );
-              lastUpdateTime = currentTime;
-              chunkBuffer = '';
+            // ブロック状態をチェック
+            if (result.promptFeedback?.blockReason) {
+              throw new Error(`Geminiがブロックされました: ${result.promptFeedback.blockReason}`);
             }
+
+            // レスポンスの検証
+            if (!result.response) {
+              throw new Error('Geminiからの応答が空です');
+            }
+
+            const candidate = result.response.candidates?.[0];
+            if (!candidate) {
+              throw new Error('Geminiからの応答に候補が含まれていません');
+            }
+
+            const text = candidate.content?.parts?.[0]?.text;
+            if (!text) {
+              throw new Error('Geminiからの応答にテキストが含まれていません');
+            }
+
+            fullResponse = text;
+          } catch (error) {
+            console.error('Gemini生成エラー:', error);
+            throw new Error(`Geminiでの生成に失敗しました: ${error.message}`);
+          }
+        } else if (llmSettings.model.includes('claude')) {
+          // Claude APIの設定
+          const anthropicClient = new Anthropic({ apiKey });
+          try {
+            const result = await anthropicClient.messages.create({
+              model: llmSettings.model,
+              max_tokens: 2000,
+              system: systemPrompt,
+              messages: [{ role: 'user', content: message }]
+            });
+
+            if (!result.content) {
+              throw new Error('Claudeからの応答が空です');
+            }
+
+            fullResponse = result.content;
+          } catch (error) {
+            console.error('Claude生成エラー:', error);
+            throw new Error(`Claudeでの生成に失敗しました: ${error.message}`);
+          }
+        } else {
+          // OpenAI APIの設定
+          openai.apiKey = apiKey;
+          try {
+            const result = await openai.chat.completions.create({
+              model: llmSettings.model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: message }
+              ],
+              temperature: 0.7,
+              max_tokens: 2000,
+            });
+
+            if (!result.choices || result.choices.length === 0) {
+              throw new Error('OpenAIからの応答が空です');
+            }
+
+            const messageContent = result.choices[0].message?.content;
+            if (!messageContent) {
+              throw new Error('OpenAIからの応答にメッセージが含まれていません');
+            }
+
+            fullResponse = messageContent;
+          } catch (error) {
+            console.error('OpenAI生成エラー:', error);
+            throw new Error(`OpenAIでの生成に失敗しました: ${error.message}`);
           }
         }
 
-        // 最終的なメッセージを保存
+        // レスポンスをクライアントに送信
+        res.write(`data: ${JSON.stringify({
+          type: 'ai_response_chunk',
+          data: { 
+            id: aiMessageId,
+            content: fullResponse,
+            fullContent: fullResponse,
+            timestamp: timestamp
+          }
+        })}\n\n`);
+
+        // メッセージを保存
         await db.runAsync(
           'UPDATE chat_room_messages SET message = ? WHERE id = ?',
           [fullResponse, aiMessageId]
@@ -311,7 +352,7 @@ const sendMessage = async (req, res) => {
         throw error;
       }
     } catch (error) {
-      console.error('OpenAI APIエラー:', error);
+      console.error('AI APIエラー:', error);
       await db.rollbackAsync();
       
       // エラーメッセージをクライアントに送信

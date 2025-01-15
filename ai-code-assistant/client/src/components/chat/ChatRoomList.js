@@ -5,6 +5,7 @@ import api from '../../services/api';
 const ChatRoomList = () => {
   const [rooms, setRooms] = useState([]);
   const [newRoomName, setNewRoomName] = useState('');
+  const [aiType, setAiType] = useState('');
   const [searchRoomId, setSearchRoomId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -57,12 +58,13 @@ const ChatRoomList = () => {
   // 新しいチャットルームの作成
   const handleCreateRoom = async (e) => {
     e.preventDefault();
-    if (!newRoomName.trim()) return;
+    if (!newRoomName.trim() || !aiType) return;
 
     try {
-      const response = await api.chat.createRoom(newRoomName.trim());
+      const response = await api.chat.createRoom(newRoomName.trim(), aiType);
       if (response.data.status === 'success') {
         setNewRoomName('');
+        setAiType('');
         fetchRooms(); // 一覧を更新
         // 作成したルームに移動
         navigate(`/chat/${response.data.data.id}`);
@@ -136,7 +138,7 @@ const ChatRoomList = () => {
         </div>
 
         {/* チャットルーム作成フォーム */}
-        <form onSubmit={handleCreateRoom} className="mb-6">
+        <form onSubmit={handleCreateRoom} className="mb-6 space-y-4">
           <div className="flex gap-2">
             <input
               type="text"
@@ -146,9 +148,23 @@ const ChatRoomList = () => {
               className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               required
             />
+            <select
+              value={aiType}
+              onChange={(e) => setAiType(e.target.value)}
+              className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              required
+            >
+              <option value="">AIタイプを選択</option>
+              <option value="code_generation">コード生成</option>
+              <option value="blog_writing">ブログ記事作成</option>
+              <option value="english_conversation">英会話練習</option>
+              <option value="video_editing">動画編集</option>
+              <option value="pc_productivity">PC作業効率化</option>
+            </select>
             <button
               type="submit"
               className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors duration-200"
+              disabled={!newRoomName.trim() || !aiType}
             >
               新規チャット
             </button>
@@ -183,6 +199,13 @@ const ChatRoomList = () => {
                       <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                           ID: {room.id}
+                        </span>
+                        <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          {room.ai_type === 'code_generation' && 'コード生成'}
+                          {room.ai_type === 'blog_writing' && 'ブログ記事作成'}
+                          {room.ai_type === 'english_conversation' && '英会話練習'}
+                          {room.ai_type === 'video_editing' && '動画編集'}
+                          {room.ai_type === 'pc_productivity' && 'PC作業効率化'}
                         </span>
                         <button
                           onClick={(e) => {

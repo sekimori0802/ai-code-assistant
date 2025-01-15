@@ -188,7 +188,7 @@ const sendMessage = async (req, res) => {
 
       // OpenAI APIを使用して応答を生成（ストリーミングモード）
       const stream = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message }

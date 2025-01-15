@@ -238,17 +238,44 @@ const sendMessage = async (req, res) => {
           });
 
           try {
-            const result = await model.generateContent({
-              contents: [{ text: `${systemPrompt}\n\n${message}` }]
+            const chat = model.startChat({
+              history: [
+                {
+                  role: 'user',
+                  parts: [{ text: systemPrompt }]
+                }
+              ]
             });
-            
+
+            const result = await chat.sendMessage(message, {
+              temperature: 0.7,
+            });
+
             if (!result.response) {
               throw new Error('Geminiからの応答が空です');
             }
 
-            const text = result.response.text;
+            const response = await result.response;
+            const text = response.text();
             if (!text) {
               throw new Error('Geminiからの応答にテキストが含まれていません');
+            }
+
+            // チャンクごとにクライアントに送信（擬似ストリーミング）
+            const chunks = text.match(/.{1,20}/g) || [text];
+            let accumulatedText = '';
+            for (const chunk of chunks) {
+              accumulatedText += chunk;
+              res.write(`data: ${JSON.stringify({
+                type: 'ai_response_chunk',
+                data: { 
+                  id: aiMessageId,
+                  content: chunk,
+                  fullContent: accumulatedText,
+                  timestamp: timestamp
+                }
+              })}\n\n`);
+              await new Promise(resolve => setTimeout(resolve, 50));
             }
 
             fullResponse = text;
@@ -263,14 +290,33 @@ const sendMessage = async (req, res) => {
             const result = await anthropicClient.messages.create({
               model: llmSettings.model,
               max_tokens: 2000,
-              messages: [{ role: 'user', content: `${systemPrompt}\n\n${message}` }]
+              system: systemPrompt,
+              messages: [{ role: 'user', content: message }]
             });
 
-            if (!result.content) {
+            if (!result.content || result.content.length === 0) {
               throw new Error('Claudeからの応答が空です');
             }
 
-            fullResponse = result.content;
+            // チャンクごとにクライアントに送信（擬似ストリーミング）
+            const text = result.content[0].text;
+            const chunks = text.match(/.{1,20}/g) || [text];
+            let accumulatedText = '';
+            for (const chunk of chunks) {
+              accumulatedText += chunk;
+              res.write(`data: ${JSON.stringify({
+                type: 'ai_response_chunk',
+                data: { 
+                  id: aiMessageId,
+                  content: chunk,
+                  fullContent: accumulatedText,
+                  timestamp: timestamp
+                }
+              })}\n\n`);
+              await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            fullResponse = text;
           } catch (error) {
             console.error('Claude生成エラー:', error);
             throw new Error(`Claudeでの生成に失敗しました: ${error.message}`);
@@ -279,7 +325,7 @@ const sendMessage = async (req, res) => {
           // OpenAI APIの設定
           openai.apiKey = apiKey;
           try {
-            const result = await openai.chat.completions.create({
+            const stream = await openai.chat.completions.create({
               model: llmSettings.model,
               messages: [
                 { role: 'system', content: systemPrompt },
@@ -287,18 +333,32 @@ const sendMessage = async (req, res) => {
               ],
               temperature: 0.7,
               max_tokens: 2000,
+              stream: true,
             });
 
-            if (!result.choices || result.choices.length === 0) {
+            let responseText = '';
+            for await (const chunk of stream) {
+              const content = chunk.choices[0]?.delta?.content;
+              if (content) {
+                responseText += content;
+                // チャンクごとにクライアントに送信
+                res.write(`data: ${JSON.stringify({
+                  type: 'ai_response_chunk',
+                  data: { 
+                    id: aiMessageId,
+                    content: content,
+                    fullContent: responseText,
+                    timestamp: timestamp
+                  }
+                })}\n\n`);
+              }
+            }
+
+            if (!responseText) {
               throw new Error('OpenAIからの応答が空です');
             }
 
-            const messageContent = result.choices[0].message?.content;
-            if (!messageContent) {
-              throw new Error('OpenAIからの応答にメッセージが含まれていません');
-            }
-
-            fullResponse = messageContent;
+            fullResponse = responseText;
           } catch (error) {
             console.error('OpenAI生成エラー:', error);
             throw new Error(`OpenAIでの生成に失敗しました: ${error.message}`);

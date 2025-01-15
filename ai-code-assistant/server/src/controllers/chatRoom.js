@@ -1,14 +1,40 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/database');
 
+// LLMモデル一覧の取得
+async function getLLMModels(req, res) {
+  try {
+    const models = await db.allAsync(
+      'SELECT id, model_name FROM llm_settings ORDER BY model_name'
+    );
+
+    res.json({
+      status: 'success',
+      data: {
+        models: models.map(model => ({
+          id: model.id,
+          name: model.model_name
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('LLMモデル一覧の取得エラー:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'LLMモデル一覧の取得に失敗しました'
+    });
+  }
+}
+
 // AIチャットルームの作成
 async function createChatRoom(req, res) {
-  const { name, aiType } = req.body;
+  const { name, aiType, llmModelId } = req.body;
   const userId = req.user.id;
 
   console.log('AIチャットルーム作成リクエスト:', {
     name,
     aiType,
+    llmModelId,
     userId,
     user: req.user
   });
@@ -19,8 +45,8 @@ async function createChatRoom(req, res) {
     // AIチャットルームの作成
     const roomId = uuidv4();
     await db.runAsync(
-      'INSERT INTO chat_rooms (id, name, created_by, ai_type) VALUES (?, ?, ?, ?)',
-      [roomId, name, userId, aiType || 'code_generation']
+      'INSERT INTO chat_rooms (id, name, created_by, ai_type, llm_model_id) VALUES (?, ?, ?, ?, ?)',
+      [roomId, name, userId, aiType || 'code_generation', llmModelId]
     );
 
     // 作成者をメンバーとして追加
@@ -503,5 +529,6 @@ module.exports = {
   sendMessage,
   getMessages,
   deleteChatRoom,
-  getRoom
+  getRoom,
+  getLLMModels
 };

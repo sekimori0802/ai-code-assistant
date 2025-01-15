@@ -225,8 +225,9 @@ export const chat = {
   deleteMessage: (id, roomId) => apiClient.delete(`/api/chat/history/${id}?roomId=${roomId}`),
   
   // チャットルーム管理
-  createRoom: (name, aiType) => apiClient.post('/api/chat-rooms', { name, aiType }),
+  createRoom: (name, aiType, llmModelId) => apiClient.post('/api/chat-rooms', { name, aiType, llmModelId }),
   getRooms: () => apiClient.get('/api/chat-rooms'),
+  getLLMModels: () => apiClient.get('/api/chat-rooms/llm-models'),
   getRoom: (roomId) => apiClient.get(`/api/chat-rooms/${roomId}`),
   joinRoom: (roomId) => apiClient.post(`/api/chat-rooms/${roomId}/join`),
   updateRoom: (roomId, data) => apiClient.put(`/api/chat-rooms/${roomId}`, data),

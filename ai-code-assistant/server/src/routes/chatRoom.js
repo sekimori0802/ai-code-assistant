@@ -7,8 +7,12 @@ const {
   addMember,
   sendMessage,
   getMessages,
-  getRoom
+  getRoom,
+  getLLMModels
 } = require('../controllers/chatRoom');
+
+// LLMモデル一覧の取得
+router.get('/llm-models', authenticateToken, getLLMModels);
 
 // トークルーム関連のエンドポイント
 // 特定のルームIDを含むルートを先に配置

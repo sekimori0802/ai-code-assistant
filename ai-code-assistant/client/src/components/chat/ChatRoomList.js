@@ -6,6 +6,8 @@ const ChatRoomList = () => {
   const [rooms, setRooms] = useState([]);
   const [newRoomName, setNewRoomName] = useState('');
   const [aiType, setAiType] = useState('');
+  const [llmModels, setLLMModels] = useState([]);
+  const [selectedLLMModel, setSelectedLLMModel] = useState('');
   const [searchRoomId, setSearchRoomId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -45,11 +47,27 @@ const ChatRoomList = () => {
     }
   };
 
-  // コンポーネントのマウント時とトークン更新時にチャットルーム一覧を取得
+  // LLMモデル一覧の取得
+  const fetchLLMModels = async () => {
+    try {
+      const response = await api.chat.getLLMModels();
+      if (response.data.status === 'success') {
+        setLLMModels(response.data.data.models);
+        if (response.data.data.models.length > 0) {
+          setSelectedLLMModel(response.data.data.models[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('LLMモデル一覧の取得エラー:', err);
+    }
+  };
+
+  // コンポーネントのマウント時とトークン更新時にデータを取得
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       fetchRooms();
+      fetchLLMModels();
     } else {
       setLoading(false);
     }
@@ -58,10 +76,10 @@ const ChatRoomList = () => {
   // 新しいチャットルームの作成
   const handleCreateRoom = async (e) => {
     e.preventDefault();
-    if (!newRoomName.trim() || !aiType) return;
+    if (!newRoomName.trim() || !aiType || !selectedLLMModel) return;
 
     try {
-      const response = await api.chat.createRoom(newRoomName.trim(), aiType);
+      const response = await api.chat.createRoom(newRoomName.trim(), aiType, selectedLLMModel);
       if (response.data.status === 'success') {
         setNewRoomName('');
         setAiType('');
@@ -148,23 +166,38 @@ const ChatRoomList = () => {
               className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               required
             />
-            <select
-              value={aiType}
-              onChange={(e) => setAiType(e.target.value)}
-              className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-              required
-            >
-              <option value="">AIタイプを選択</option>
-              <option value="code_generation">コード生成</option>
-              <option value="blog_writing">ブログ記事作成</option>
-              <option value="english_conversation">英会話練習</option>
-              <option value="video_editing">動画編集</option>
-              <option value="pc_productivity">PC作業効率化</option>
-            </select>
+            <div className="flex gap-2">
+              <select
+                value={aiType}
+                onChange={(e) => setAiType(e.target.value)}
+                className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                required
+              >
+                <option value="">AIタイプを選択</option>
+                <option value="code_generation">コード生成</option>
+                <option value="blog_writing">ブログ記事作成</option>
+                <option value="english_conversation">英会話練習</option>
+                <option value="video_editing">動画編集</option>
+                <option value="pc_productivity">PC作業効率化</option>
+              </select>
+              <select
+                value={selectedLLMModel}
+                onChange={(e) => setSelectedLLMModel(e.target.value)}
+                className="p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                required
+              >
+                <option value="">AIモデルを選択</option>
+                {llmModels.map(model => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               type="submit"
               className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors duration-200"
-              disabled={!newRoomName.trim() || !aiType}
+              disabled={!newRoomName.trim() || !aiType || !selectedLLMModel}
             >
               新規チャット
             </button>

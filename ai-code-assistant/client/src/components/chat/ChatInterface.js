@@ -161,12 +161,19 @@ const ChatInterface = ({ roomId }) => {
             // AIの応答を段階的に更新
             setMessages(prev => {
               const newMessages = [...prev];
-              const aiMessageIndex = newMessages.length - 1;
-              if (aiMessageIndex >= 0 && newMessages[aiMessageIndex].type === 'ai') {
-                newMessages[aiMessageIndex] = {
-                  ...newMessages[aiMessageIndex],
-                  content: newMessages[aiMessageIndex].content + data.data.content
-                };
+              const aiMessage = newMessages.find(msg => msg.type === 'ai' && msg.id === data.data.id);
+              if (aiMessage) {
+                aiMessage.content = data.data.fullContent;
+              } else {
+                newMessages.push({
+                  id: data.data.id,
+                  type: 'ai',
+                  content: data.data.fullContent,
+                  timestamp: data.data.timestamp,
+                  userId: 'system',
+                  userEmail: 'System',
+                  isStreaming: true
+                });
               }
               return newMessages;
             });
@@ -174,21 +181,13 @@ const ChatInterface = ({ roomId }) => {
             // ストリーミング完了時の処理
             setMessages(prev => {
               const newMessages = [...prev];
-              const aiMessageIndex = newMessages.length - 1;
-              if (aiMessageIndex >= 0 && newMessages[aiMessageIndex].type === 'ai') {
-                newMessages[aiMessageIndex] = {
-                  type: 'ai',
-                  content: data.data.message,
-                  timestamp: data.data.timestamp,
-                  userId: 'system',
-                  userEmail: 'System',
-                  isStreaming: false
-                };
+              const aiMessage = newMessages.find(msg => msg.type === 'ai' && msg.id === data.data.id);
+              if (aiMessage) {
+                aiMessage.content = data.data.message;
+                aiMessage.isStreaming = false;
               }
-              return newMessages;
+              return [...newMessages];
             });
-            // チャット履歴を再取得
-            loadChatHistory();
           }
         }
       , roomData?.ai_type);

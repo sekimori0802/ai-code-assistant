@@ -200,33 +200,47 @@ const sendMessage = async (req, res) => {
 
       let fullResponse = '';
 
+      // AIメッセージのIDを生成
+      const aiMessageId = uuidv4();
+
+      // 空のAIメッセージを作成
+      await db.runAsync(
+        'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
+        [aiMessageId, roomId, 'system', '', timestamp]
+      );
+
+      await db.commitAsync();
+
       // ストリームからの応答を処理
       for await (const chunk of stream) {
         const content = chunk.choices[0]?.delta?.content || '';
         if (content) {
           fullResponse += content;
+          
+          // データベースのメッセージを更新
+          await db.runAsync(
+            'UPDATE chat_room_messages SET message = ? WHERE id = ?',
+            [fullResponse, aiMessageId]
+          );
+
           // クライアントにチャンクを送信
           res.write(`data: ${JSON.stringify({
             type: 'ai_response_chunk',
-            data: { content }
+            data: { 
+              id: aiMessageId,
+              content,
+              fullContent: fullResponse,
+              timestamp: timestamp
+            }
           })}\n\n`);
         }
       }
-
-      // AIの完全な応答を保存
-      const aiMessageId = uuidv4();
-      await db.runAsync(
-        'INSERT INTO chat_room_messages (id, room_id, user_id, message, created_at) VALUES (?, ?, ?, ?, ?)',
-        [aiMessageId, roomId, 'system', fullResponse, timestamp]
-      );
 
       // トークルームの更新日時を更新
       await db.runAsync(
         'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
         [roomId]
       );
-
-      await db.commitAsync();
 
       // 完了通知を送信
       res.write(`data: ${JSON.stringify({

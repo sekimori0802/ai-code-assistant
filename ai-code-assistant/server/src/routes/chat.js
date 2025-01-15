@@ -67,16 +67,19 @@ router.delete('/rooms/:roomId', async (req, res) => {
 });
 
 // チャットメッセージ関連のエンドポイント
-router.get('/send', async (req, res) => {
+router.post('/send', async (req, res) => {
   console.log('メッセージ送信リクエスト:', {
+    user: req.user,
+    body: req.body
+  });
+  await sendMessage(req, res);
+});
+
+router.get('/send', async (req, res) => {
+  console.log('メッセージ送信リクエスト (SSE):', {
     user: req.user,
     query: req.query
   });
-  // クエリパラメータをリクエストボディに変換
-  req.body = {
-    message: req.query.message,
-    roomId: req.query.roomId
-  };
   await sendMessage(req, res);
 });
 

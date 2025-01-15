@@ -67,13 +67,28 @@ I will respond in English, but I can provide explanations in Japanese when neede
 
 // メッセージの送信
 const sendMessage = async (req, res) => {
-  const { message, roomId, aiType } = req.query;
+  // クエリパラメータまたはリクエストボディからデータを取得
+  const message = req.query.message || req.body.message;
+  const roomId = req.query.roomId || req.body.roomId;
+  const aiType = req.query.aiType || req.body.aiType;
   const userId = req.user.id;
 
-  // Content-Type を設定
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+  console.log('メッセージ送信パラメータ:', {
+    message,
+    roomId,
+    aiType,
+    userId,
+    method: req.method,
+    query: req.query,
+    body: req.body
+  });
+
+  // SSEの場合のみContent-Typeを設定
+  if (req.method === 'GET') {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+  }
 
   try {
     await db.beginTransactionAsync();
@@ -92,15 +107,31 @@ const sendMessage = async (req, res) => {
     }
 
     // トークルームのメンバー数を取得
-    const memberCount = await db.getAsync(
-      'SELECT COUNT(user_id) as count FROM chat_room_members WHERE room_id = ?',
+    const memberCountResult = await db.getAsync(
+      'SELECT COUNT(*) as count FROM chat_room_members WHERE room_id = ?',
       [roomId]
     );
+    const memberCount = parseInt(memberCountResult.count, 10);
+
+    console.log('メンバー数とメンション条件:', {
+      memberCount,
+      message,
+      hasMention: message.includes('@AI'),
+      isSingleUser: memberCount === 1,
+      rawCount: memberCountResult
+    });
 
     // AIモデルを呼び出す条件を確認
-    const isSingleUser = memberCount.count === 1;
+    const isSingleUser = memberCount === 1;
     const hasMention = message.includes('@AI');
     const shouldCallAI = isSingleUser || (!isSingleUser && hasMention);
+
+    console.log('AI呼び出し判定:', {
+      shouldCallAI,
+      isSingleUser,
+      hasMention,
+      memberCount
+    });
 
     if (!shouldCallAI) {
       // AIを呼び出さない場合はユーザーメッセージのみを保存

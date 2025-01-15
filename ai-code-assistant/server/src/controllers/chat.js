@@ -123,7 +123,8 @@ const sendMessage = async (req, res) => {
 
     // AIモデルを呼び出す条件を確認
     const isSingleUser = memberCount === 1;
-    const hasMention = message.includes('@AI');
+    // 全角・半角両方のメンションに対応
+    const hasMention = message.includes('@AI') || message.includes('＠AI');
     const shouldCallAI = isSingleUser || (!isSingleUser && hasMention);
 
     console.log('AI呼び出し判定:', {

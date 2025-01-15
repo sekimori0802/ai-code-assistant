@@ -12,7 +12,7 @@ const {
 // トークルーム関連のエンドポイント
 router.post('/', authenticateToken, createChatRoom);
 router.get('/', authenticateToken, getChatRooms);
-router.post('/member', authenticateToken, addMember);
+router.post('/:roomId/join', authenticateToken, addMember);
 router.post('/message', authenticateToken, sendMessage);
 router.get('/:roomId/messages', authenticateToken, getMessages);
 

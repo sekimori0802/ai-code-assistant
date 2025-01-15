@@ -125,6 +125,7 @@ export const chat = {
   createRoom: (data) => apiClient.post('/api/chat-rooms', data),
   getRooms: () => apiClient.get('/api/chat-rooms'),
   getRoom: (roomId) => apiClient.get(`/api/chat-rooms/${roomId}`),
+  joinRoom: (roomId) => apiClient.post(`/api/chat-rooms/${roomId}/join`),
   updateRoom: (roomId, data) => apiClient.put(`/api/chat-rooms/${roomId}`, data),
   deleteRoom: (roomId) => apiClient.delete(`/api/chat-rooms/${roomId}`),
 };

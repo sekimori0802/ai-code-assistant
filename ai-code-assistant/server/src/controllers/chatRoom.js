@@ -119,37 +119,36 @@ async function getChatRooms(req, res) {
 
 // トークルームへのメンバー追加
 async function addMember(req, res) {
-  const { roomId, userId: newMemberId } = req.body;
-  const requesterId = req.user.id;
+  const { roomId } = req.params;
+  const userId = req.user.id;
 
   console.log('メンバー追加リクエスト:', {
     roomId,
-    newMemberId,
-    requesterId,
+    userId,
     user: req.user
   });
 
   try {
     await db.beginTransactionAsync();
 
-    // リクエスト送信者がトークルームのメンバーであることを確認
-    const requesterMembership = await db.getAsync(
-      'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
-      [roomId, requesterId]
+    // ルームが存在するか確認
+    const room = await db.getAsync(
+      'SELECT * FROM chat_rooms WHERE id = ?',
+      [roomId]
     );
 
-    if (!requesterMembership) {
+    if (!room) {
       await db.rollbackAsync();
-      return res.status(403).json({
+      return res.status(404).json({
         status: 'error',
-        message: 'トークルームのメンバーではありません'
+        message: '指定されたルームが見つかりません'
       });
     }
 
-    // 追加するユーザーが既にメンバーでないことを確認
+    // 既にメンバーでないことを確認
     const existingMember = await db.getAsync(
       'SELECT * FROM chat_room_members WHERE room_id = ? AND user_id = ?',
-      [roomId, newMemberId]
+      [roomId, userId]
     );
 
     if (existingMember) {
@@ -163,7 +162,7 @@ async function addMember(req, res) {
     // メンバーとして追加
     await db.runAsync(
       'INSERT INTO chat_room_members (room_id, user_id) VALUES (?, ?)',
-      [roomId, newMemberId]
+      [roomId, userId]
     );
 
     await db.commitAsync();

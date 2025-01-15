@@ -5,8 +5,10 @@ import api from '../../services/api';
 const ChatRoomList = () => {
   const [rooms, setRooms] = useState([]);
   const [newRoomName, setNewRoomName] = useState('');
+  const [searchRoomId, setSearchRoomId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchError, setSearchError] = useState(null);
   const navigate = useNavigate();
 
   // チャットルーム一覧の取得
@@ -77,6 +79,41 @@ const ChatRoomList = () => {
         <p className="text-gray-600 mb-4">
           新しいチャットを開始するか、既存のチャットを続けることができます。
         </p>
+
+        {/* チャットルーム作成フォーム */}
+        {/* ルームID検索フォーム */}
+        <div className="mb-6">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={searchRoomId}
+              onChange={(e) => setSearchRoomId(e.target.value)}
+              placeholder="ルームIDを入力して参加"
+              className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            <button
+              onClick={async () => {
+                if (!searchRoomId.trim()) return;
+                try {
+                  const response = await api.chat.joinRoom(searchRoomId.trim());
+                  if (response.data.status === 'success') {
+                    navigate(`/chat/${searchRoomId.trim()}`);
+                    setSearchError(null);
+                  }
+                } catch (err) {
+                  console.error('ルーム参加エラー:', err);
+                  setSearchError('指定されたルームが見つからないか、参加できません');
+                }
+              }}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors duration-200"
+            >
+              参加
+            </button>
+          </div>
+          {searchError && (
+            <div className="mt-2 text-sm text-red-600">{searchError}</div>
+          )}
+        </div>
 
         {/* チャットルーム作成フォーム */}
         <form onSubmit={handleCreateRoom} className="mb-6">

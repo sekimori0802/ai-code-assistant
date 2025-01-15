@@ -229,28 +229,24 @@ const sendMessage = async (req, res) => {
         if (llmSettings.model.includes('gemini')) {
           // Gemini APIの設定
           const genAI = new GoogleGenerativeAI(apiKey);
-          const model = genAI.getGenerativeModel({ model: llmSettings.model });
+          const model = genAI.getGenerativeModel({ 
+            model: llmSettings.model,
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 2000,
+            }
+          });
+
           try {
             const result = await model.generateContent({
               contents: [{ text: `${systemPrompt}\n\n${message}` }]
             });
-
-            // ブロック状態をチェック
-            if (result.promptFeedback?.blockReason) {
-              throw new Error(`Geminiがブロックされました: ${result.promptFeedback.blockReason}`);
-            }
-
-            // レスポンスの検証
+            
             if (!result.response) {
               throw new Error('Geminiからの応答が空です');
             }
 
-            const candidate = result.response.candidates?.[0];
-            if (!candidate) {
-              throw new Error('Geminiからの応答に候補が含まれていません');
-            }
-
-            const text = candidate.content?.parts?.[0]?.text;
+            const text = result.response.text;
             if (!text) {
               throw new Error('Geminiからの応答にテキストが含まれていません');
             }
@@ -267,8 +263,7 @@ const sendMessage = async (req, res) => {
             const result = await anthropicClient.messages.create({
               model: llmSettings.model,
               max_tokens: 2000,
-              system: systemPrompt,
-              messages: [{ role: 'user', content: message }]
+              messages: [{ role: 'user', content: `${systemPrompt}\n\n${message}` }]
             });
 
             if (!result.content) {

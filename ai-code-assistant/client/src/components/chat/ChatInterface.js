@@ -105,26 +105,15 @@ const ChatInterface = ({ roomId }) => {
 
     try {
       console.log('メッセージを送信中:', { message: userMessage.content, roomId });
-      
-      // メンション判定
-      const hasMention = userMessage.content.includes('@AI') || userMessage.content.includes('＠AI');
-      const shouldCallAI = roomData?.member_count === 1 || hasMention;
 
-      // ユーザーメッセージを追加
-      setMessages(prev => [...prev, userMessage]);
+      // 一時的なユーザーメッセージを追加
+      const tempUserMessage = {
+        ...userMessage,
+        isTemp: true
+      };
+      setMessages(prev => [...prev, tempUserMessage]);
 
-      // AIの応答が必要な場合のみ、応答用の仮のメッセージを追加
-      if (shouldCallAI) {
-        setMessages(prev => [...prev, {
-          type: 'ai',
-          content: '',
-          timestamp: new Date().toISOString(),
-          userId: 'system',
-          userEmail: 'System',
-          isStreaming: true
-        }]);
-      }
-
+      // メッセージを送信
       await api.chat.sendMessage(
         userMessage.content,
         roomId,
@@ -141,59 +130,65 @@ const ChatInterface = ({ roomId }) => {
           }
 
           if (data.type === 'user_message_saved') {
-            // ユーザーメッセージを更新（AIの応答がない場合）
+            // 一時的なメッセージを永続的なメッセージに置き換え
+            setMessages(prev => {
+              const newMessages = prev.filter(msg => !msg.isTemp);
+              return [...newMessages, {
+                type: 'user',
+                content: data.data.message,
+                timestamp: data.data.timestamp,
+                userId: user.id,
+                userEmail: user.email
+              }];
+            });
+
+            // AIの応答が必要な場合のみ、応答用のメッセージを追加
+            if (data.data.shouldCallAI) {
+              setMessages(prev => [...prev, {
+                type: 'ai',
+                content: '',
+                timestamp: new Date().toISOString(),
+                userId: 'system',
+                userEmail: 'System',
+                isStreaming: true
+              }]);
+            } else {
+              setIsLoading(false);
+              // チャット履歴を再取得
+              loadChatHistory();
+            }
+          } else if (data.type === 'ai_response_chunk') {
+            // AIの応答を段階的に更新
             setMessages(prev => {
               const newMessages = [...prev];
-              const userMessageIndex = newMessages.length - (shouldCallAI ? 2 : 1);
-              if (userMessageIndex >= 0) {
-                newMessages[userMessageIndex] = {
-                  type: 'user',
-                  content: data.data.message,
-                  timestamp: data.data.timestamp,
-                  userId: user.id,
-                  userEmail: user.email
+              const aiMessageIndex = newMessages.length - 1;
+              if (aiMessageIndex >= 0 && newMessages[aiMessageIndex].type === 'ai') {
+                newMessages[aiMessageIndex] = {
+                  ...newMessages[aiMessageIndex],
+                  content: newMessages[aiMessageIndex].content + data.data.content
                 };
               }
               return newMessages;
             });
-            // AIの応答がない場合はここで終了
-            if (!shouldCallAI) {
-              setMessages(prev => prev.slice(0, -1)); // AIの応答メッセージを削除
-              setIsLoading(false);
-              return;
-            }
-          } else if (shouldCallAI) {
-            if (data.type === 'ai_response_chunk') {
-              // AIの応答を段階的に更新
-              setMessages(prev => {
-                const newMessages = [...prev];
-                const aiMessageIndex = newMessages.length - 1;
-                if (aiMessageIndex >= 0 && newMessages[aiMessageIndex].type === 'ai') {
-                  newMessages[aiMessageIndex] = {
-                    ...newMessages[aiMessageIndex],
-                    content: newMessages[aiMessageIndex].content + data.data.content
-                  };
-                }
-                return newMessages;
-              });
-            } else if (data.type === 'ai_response_complete') {
-              // ストリーミング完了時の処理
-              setMessages(prev => {
-                const newMessages = [...prev];
-                const aiMessageIndex = newMessages.length - 1;
-                if (aiMessageIndex >= 0 && newMessages[aiMessageIndex].type === 'ai') {
-                  newMessages[aiMessageIndex] = {
-                    type: 'ai',
-                    content: data.data.message,
-                    timestamp: data.data.timestamp,
-                    userId: 'system',
-                    userEmail: 'System',
-                    isStreaming: false
-                  };
-                }
-                return newMessages;
-              });
-            }
+          } else if (data.type === 'ai_response_complete') {
+            // ストリーミング完了時の処理
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const aiMessageIndex = newMessages.length - 1;
+              if (aiMessageIndex >= 0 && newMessages[aiMessageIndex].type === 'ai') {
+                newMessages[aiMessageIndex] = {
+                  type: 'ai',
+                  content: data.data.message,
+                  timestamp: data.data.timestamp,
+                  userId: 'system',
+                  userEmail: 'System',
+                  isStreaming: false
+                };
+              }
+              return newMessages;
+            });
+            // チャット履歴を再取得
+            loadChatHistory();
           }
         }
       , roomData?.ai_type);
@@ -206,7 +201,7 @@ const ChatInterface = ({ roomId }) => {
       });
       setError('メッセージの送信に失敗しました。もう一度お試しください。');
       // 失敗したメッセージを削除
-      setMessages(prev => prev.slice(0, -2));
+      setMessages(prev => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
     }

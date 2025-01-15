@@ -163,42 +163,23 @@ const sendMessage = async (req, res) => {
       [userMessageId, roomId, userId, message, timestamp]
     );
 
-    // メンバー数とメンション条件に基づいてAIの応答を制御
-    if (!shouldCallAI) {
-      await db.commitAsync();
-      if (req.method === 'GET') {
-        res.write(`data: ${JSON.stringify({
-          type: 'user_message_saved',
-          data: {
-            id: userMessageId,
-            message: message,
-            timestamp: timestamp
-          }
-        })}\n\n`);
-        res.end();
-      } else {
-        res.json({
-          status: 'success',
-          data: {
-            id: userMessageId,
-            message: message,
-            timestamp: timestamp
-          }
-        });
-      }
-      return;
-    }
-
-
-    // ユーザーメッセージの保存を通知
+    // ユーザーメッセージの保存を通知（shouldCallAIの情報も含める）
     res.write(`data: ${JSON.stringify({
       type: 'user_message_saved',
       data: {
         id: userMessageId,
         message: message,
-        timestamp: timestamp
+        timestamp: timestamp,
+        shouldCallAI: shouldCallAI
       }
     })}\n\n`);
+
+    // メンバー数とメンション条件に基づいてAIの応答を制御
+    if (!shouldCallAI) {
+      await db.commitAsync();
+      res.end();
+      return;
+    }
 
     try {
       // AIタイプに応じたシステムプロンプトを選択

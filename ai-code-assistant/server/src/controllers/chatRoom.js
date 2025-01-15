@@ -435,11 +435,61 @@ async function deleteChatRoom(req, res) {
   }
 }
 
+// 特定のチャットルームの取得
+async function getRoom(req, res) {
+  const { roomId } = req.params;
+  const userId = req.user.id;
+
+  try {
+    // チャットルームの情報を取得
+    const room = await db.getAsync(`
+      SELECT r.*, COUNT(m.user_id) as member_count,
+             (SELECT message 
+              FROM chat_room_messages 
+              WHERE room_id = r.id 
+              ORDER BY created_at DESC 
+              LIMIT 1) as last_message
+      FROM chat_rooms r
+      LEFT JOIN chat_room_members m ON r.id = m.room_id
+      WHERE r.id = ?
+      GROUP BY r.id
+    `, [roomId]);
+
+    if (!room) {
+      return res.status(404).json({
+        status: 'error',
+        message: '指定されたルームが見つかりません'
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        id: room.id,
+        name: room.name,
+        created_by: room.created_by,
+        ai_type: room.ai_type,
+        member_count: room.member_count,
+        last_message: room.last_message,
+        created_at: room.created_at,
+        updated_at: room.updated_at
+      }
+    });
+  } catch (error) {
+    console.error('チャットルーム取得エラー:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'チャットルームの取得に失敗しました'
+    });
+  }
+}
+
 module.exports = {
   createChatRoom,
   getChatRooms,
   addMember,
   sendMessage,
   getMessages,
-  deleteChatRoom
+  deleteChatRoom,
+  getRoom
 };

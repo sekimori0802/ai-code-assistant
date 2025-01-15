@@ -155,9 +155,24 @@ const ChatRoomList = () => {
                 className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors duration-200"
               >
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    {room.name}
-                  </h3>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">
+                      {room.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm text-gray-500">ID: {room.id}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(room.id);
+                          alert('ルームIDをコピーしました');
+                        }}
+                        className="text-sm text-blue-500 hover:text-blue-700"
+                      >
+                        コピー
+                      </button>
+                    </div>
+                  </div>
                   <span className="text-sm text-gray-500">
                     {new Date(room.updated_at || room.created_at).toLocaleString()}
                   </span>

@@ -99,28 +99,30 @@ const ChatInterface = ({ roomId }) => {
       userEmail: user.email
     };
 
+    // メンション判定
+    const hasMention = input.trim().includes('@AI') || input.trim().includes('＠AI');
+    const shouldCallAI = roomData?.member_count === 1 || hasMention;
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
     setError('');
 
-    // AIの応答用の仮のメッセージを追加
-    setMessages(prev => [...prev, {
-      type: 'ai',
-      content: '',
-      timestamp: new Date().toISOString(),
-      userId: 'system',
-      userEmail: 'System',
-      isStreaming: true
-    }]);
+    // AIの応答が必要な場合のみ、応答用の仮のメッセージを追加
+    if (shouldCallAI) {
+      setMessages(prev => [...prev, {
+        type: 'ai',
+        content: '',
+        timestamp: new Date().toISOString(),
+        userId: 'system',
+        userEmail: 'System',
+        isStreaming: true
+      }]);
+    }
 
     try {
       console.log('メッセージを送信中:', { message: userMessage.content, roomId });
       
-      // メンション判定
-      const hasMention = userMessage.content.includes('@AI') || userMessage.content.includes('＠AI');
-      const shouldCallAI = roomData?.member_count === 1 || hasMention;
-
       await api.chat.sendMessage(
         userMessage.content,
         roomId,

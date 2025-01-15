@@ -79,9 +79,15 @@ export const chat = {
   sendMessage: (message, roomId, onChunk, aiType) => {
     return new Promise((resolve, reject) => {
       const token = localStorage.getItem('token');
-      const eventSource = new EventSource(
-        `${API_URL}/api/chat/send?message=${encodeURIComponent(message)}&roomId=${encodeURIComponent(roomId)}&token=${encodeURIComponent(token)}&aiType=${encodeURIComponent(aiType || 'code_generation')}`
-      );
+      const url = new URL(`${API_URL}/api/chat/send`);
+      url.searchParams.append('message', message);
+      url.searchParams.append('roomId', roomId);
+      url.searchParams.append('token', token);
+      url.searchParams.append('aiType', aiType || 'code_generation');
+
+      const eventSource = new EventSource(url.toString());
+
+      let hasReceivedUserMessage = false;
 
       eventSource.onmessage = (event) => {
         try {
@@ -95,15 +101,26 @@ export const chat = {
             return;
           }
 
-          // 完了イベントの確認
-          if (data.type === 'ai_response_complete') {
-            console.log('Stream complete');
-            eventSource.close();
-            resolve(data);
-            return;
+          // ユーザーメッセージが保存された場合
+          if (data.type === 'user_message_saved') {
+            hasReceivedUserMessage = true;
+            onChunk(data);
+            // AIの応答が不要な場合はここで終了
+            if (!data.shouldCallAI) {
+              eventSource.close();
+              resolve(data);
+              return;
+            }
           }
-
-          onChunk(data);
+          // AIの応答チャンクまたは完了イベント
+          else if (hasReceivedUserMessage) {
+            onChunk(data);
+            if (data.type === 'ai_response_complete') {
+              console.log('Stream complete');
+              eventSource.close();
+              resolve(data);
+            }
+          }
         } catch (error) {
           console.error('Error parsing message:', error);
           eventSource.close();
@@ -114,7 +131,9 @@ export const chat = {
       eventSource.onerror = (error) => {
         console.error('EventSource error:', error);
         eventSource.close();
-        reject(new Error('Stream connection failed'));
+        if (!hasReceivedUserMessage) {
+          reject(new Error('Stream connection failed'));
+        }
       };
     });
   },

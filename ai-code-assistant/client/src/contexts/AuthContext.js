@@ -51,7 +51,9 @@ export const AuthProvider = ({ children }) => {
           if (mounted) {
             setUser(null);
             setLoading(false);
-            navigate('/login');
+            if (window.location.pathname !== '/login') {
+              navigate('/login');
+            }
           }
           return;
         }
@@ -67,18 +69,30 @@ export const AuthProvider = ({ children }) => {
         if (mounted) {
           setUser(null);
           setLoading(false);
-          navigate('/login');
+          if (window.location.pathname !== '/login') {
+            navigate('/login');
+          }
         }
       }
     };
 
     verifyToken();
 
+    // ページ遷移時にトークンを再検証
+    const handleRouteChange = () => {
+      if (mounted) {
+        verifyToken();
+      }
+    };
+
+    window.addEventListener('popstate', handleRouteChange);
+
     return () => {
       mounted = false;
       if (retryTimeout) {
         clearTimeout(retryTimeout);
       }
+      window.removeEventListener('popstate', handleRouteChange);
     };
   }, [navigate]);
 

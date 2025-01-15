@@ -23,15 +23,35 @@ const ChatRoomList = () => {
       }
     } catch (err) {
       console.error('チャットルーム一覧の取得エラー:', err);
+      if (err.response?.status === 401) {
+        // 認証エラーの場合は再認証を試みる
+        try {
+          await api.auth.verifyToken();
+          // 再認証成功したら再度ルーム一覧を取得
+          const retryResponse = await api.chat.getRooms();
+          if (retryResponse.data.status === 'success') {
+            setRooms(retryResponse.data.data.rooms);
+            setError(null);
+            return;
+          }
+        } catch (retryErr) {
+          console.error('再認証エラー:', retryErr);
+        }
+      }
       setError('チャットルーム一覧の取得に失敗しました');
     } finally {
       setLoading(false);
     }
   };
 
-  // コンポーネントのマウント時にチャットルーム一覧を取得
+  // コンポーネントのマウント時とトークン更新時にチャットルーム一覧を取得
   useEffect(() => {
-    fetchRooms();
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetchRooms();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   // 新しいチャットルームの作成

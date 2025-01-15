@@ -238,12 +238,36 @@ const sendMessage = async (req, res) => {
           });
 
           try {
-            const prompt = `${systemPrompt}\n\n${message}`;
-            const result = await model.generateContent(prompt);
-            const response = await result.response;
+            const result = await model.generateContent({
+              contents: [{
+                role: 'user',
+                parts: [{
+                  text: systemPrompt
+                }]
+              }, {
+                role: 'model',
+                parts: [{
+                  text: 'はい、承知しました。'
+                }]
+              }, {
+                role: 'user',
+                parts: [{
+                  text: message
+                }]
+              }],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 2000,
+              }
+            });
             
-            if (!response || !response.text) {
+            if (!result.response) {
               throw new Error('Geminiからの応答が空です');
+            }
+
+            const response = await result.response;
+            if (!response.text) {
+              throw new Error('Geminiからの応答にテキストが含まれていません');
             }
 
             const text = response.text;

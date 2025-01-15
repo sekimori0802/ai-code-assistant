@@ -223,6 +223,12 @@ const sendMessage = async (req, res) => {
             [fullResponse, aiMessageId]
           );
 
+          // トークルームの更新日時を更新
+          await db.runAsync(
+            'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [roomId]
+          );
+
           // クライアントにチャンクを送信
           res.write(`data: ${JSON.stringify({
             type: 'ai_response_chunk',
@@ -233,6 +239,11 @@ const sendMessage = async (req, res) => {
               timestamp: timestamp
             }
           })}\n\n`);
+
+          // 変更をコミット
+          await db.commitAsync();
+          // 新しいトランザクションを開始
+          await db.beginTransactionAsync();
         }
       }
 

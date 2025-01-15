@@ -79,61 +79,114 @@ export const chat = {
   sendMessage: (message, roomId, onChunk, aiType) => {
     return new Promise((resolve, reject) => {
       const token = localStorage.getItem('token');
+      if (!token) {
+        reject(new Error('認証トークンが見つかりません'));
+        return;
+      }
+
       const url = new URL(`${API_URL}/api/chat/send`);
       url.searchParams.append('message', message);
       url.searchParams.append('roomId', roomId);
       url.searchParams.append('token', token);
       url.searchParams.append('aiType', aiType || 'code_generation');
 
-      const eventSource = new EventSource(url.toString());
-
+      let eventSource = null;
+      let reconnectAttempts = 0;
+      const maxReconnectAttempts = 3;
       let hasReceivedUserMessage = false;
+      let isClosing = false;
 
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('Received message:', data);
+      const connect = () => {
+        if (isClosing) return;
 
-          if (data.error) {
-            console.error('Server error:', data.error);
-            eventSource.close();
-            reject(new Error(data.error));
-            return;
-          }
+        eventSource = new EventSource(url.toString());
+        console.log('EventSource接続を開始:', url.toString());
 
-          // ユーザーメッセージが保存された場合
-          if (data.type === 'user_message_saved') {
-            hasReceivedUserMessage = true;
-            onChunk(data);
-            // AIの応答が不要な場合はここで終了
-            if (!data.shouldCallAI) {
-              eventSource.close();
-              resolve(data);
+        eventSource.onopen = () => {
+          console.log('EventSource接続が確立されました');
+          reconnectAttempts = 0;
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('メッセージを受信:', data);
+
+            if (data.error) {
+              console.error('サーバーエラー:', data.error);
+              closeConnection();
+              reject(new Error(data.error));
               return;
             }
+
+            // ユーザーメッセージが保存された場合
+            if (data.type === 'user_message_saved') {
+              hasReceivedUserMessage = true;
+              onChunk(data);
+              // AIの応答が不要な場合はここで終了
+              if (!data.data.shouldCallAI) {
+                closeConnection();
+                resolve(data);
+                return;
+              }
+            }
+            // AIの応答チャンクまたは完了イベント
+            else if (hasReceivedUserMessage) {
+              onChunk(data);
+              if (data.type === 'ai_response_complete') {
+                console.log('ストリーミングが完了しました');
+                closeConnection();
+                resolve(data);
+              }
+            }
+          } catch (error) {
+            console.error('メッセージのパースエラー:', error);
+            closeConnection();
+            reject(error);
           }
-          // AIの応答チャンクまたは完了イベント
-          else if (hasReceivedUserMessage) {
-            onChunk(data);
-            if (data.type === 'ai_response_complete') {
-              console.log('Stream complete');
-              eventSource.close();
-              resolve(data);
+        };
+
+        eventSource.onerror = (error) => {
+          console.error('EventSourceエラー:', error);
+          
+          if (reconnectAttempts < maxReconnectAttempts && !hasReceivedUserMessage) {
+            console.log(`再接続を試みます (${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+            eventSource.close();
+            reconnectAttempts++;
+            setTimeout(connect, 1000 * reconnectAttempts);
+          } else {
+            closeConnection();
+            if (!hasReceivedUserMessage) {
+              reject(new Error('ストリーム接続に失敗しました'));
             }
           }
-        } catch (error) {
-          console.error('Error parsing message:', error);
+        };
+      };
+
+      const closeConnection = () => {
+        if (eventSource) {
+          isClosing = true;
           eventSource.close();
-          reject(error);
+          eventSource = null;
         }
       };
 
-      eventSource.onerror = (error) => {
-        console.error('EventSource error:', error);
-        eventSource.close();
-        if (!hasReceivedUserMessage) {
-          reject(new Error('Stream connection failed'));
+      // 接続を開始
+      connect();
+
+      // クリーンアップ用のタイムアウト
+      const timeout = setTimeout(() => {
+        if (eventSource && !hasReceivedUserMessage) {
+          console.error('接続タイムアウト');
+          closeConnection();
+          reject(new Error('接続がタイムアウトしました'));
         }
+      }, 30000); // 30秒でタイムアウト
+
+      // クリーンアップ関数を返す
+      return () => {
+        clearTimeout(timeout);
+        closeConnection();
       };
     });
   },

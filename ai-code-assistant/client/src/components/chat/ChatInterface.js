@@ -131,63 +131,76 @@ const ChatInterface = ({ roomId }) => {
 
           if (data.type === 'user_message_saved') {
             // 一時的なメッセージを永続的なメッセージに置き換え
+            const updatedMessage = {
+              id: data.data.id,
+              type: 'user',
+              content: data.data.message,
+              timestamp: data.data.timestamp,
+              userId: user.id,
+              userEmail: user.email
+            };
+
             setMessages(prev => {
               const newMessages = prev.filter(msg => !msg.isTemp);
-              return [...newMessages, {
-                type: 'user',
-                content: data.data.message,
-                timestamp: data.data.timestamp,
-                userId: user.id,
-                userEmail: user.email
-              }];
+              return [...newMessages, updatedMessage];
             });
 
             // AIの応答が必要な場合のみ、応答用のメッセージを追加
             if (data.data.shouldCallAI) {
-              setMessages(prev => [...prev, {
+              const aiMessage = {
                 type: 'ai',
                 content: '',
                 timestamp: new Date().toISOString(),
                 userId: 'system',
                 userEmail: 'System',
                 isStreaming: true
-              }]);
+              };
+              setMessages(prev => [...prev, aiMessage]);
             } else {
               setIsLoading(false);
-              // チャット履歴を再取得
-              loadChatHistory();
             }
           } else if (data.type === 'ai_response_chunk') {
             // AIの応答を段階的に更新
             setMessages(prev => {
-              const newMessages = [...prev];
-              const aiMessage = newMessages.find(msg => msg.type === 'ai' && msg.id === data.data.id);
-              if (aiMessage) {
-                aiMessage.content = data.data.fullContent;
-              } else {
-                newMessages.push({
+              const lastMessage = prev[prev.length - 1];
+              if (lastMessage && lastMessage.type === 'ai' && lastMessage.isStreaming) {
+                const newMessages = [...prev];
+                newMessages[newMessages.length - 1] = {
+                  ...lastMessage,
                   id: data.data.id,
-                  type: 'ai',
                   content: data.data.fullContent,
-                  timestamp: data.data.timestamp,
-                  userId: 'system',
-                  userEmail: 'System',
-                  isStreaming: true
-                });
+                  timestamp: data.data.timestamp
+                };
+                return newMessages;
               }
-              return newMessages;
+              return prev;
             });
           } else if (data.type === 'ai_response_complete') {
             // ストリーミング完了時の処理
+            const aiMessage = {
+              id: data.data.id,
+              type: 'ai',
+              content: data.data.message,
+              timestamp: data.data.timestamp,
+              userId: 'system',
+              userEmail: 'System',
+              isStreaming: false
+            };
+
             setMessages(prev => {
-              const newMessages = [...prev];
-              const aiMessage = newMessages.find(msg => msg.type === 'ai' && msg.id === data.data.id);
-              if (aiMessage) {
-                aiMessage.content = data.data.message;
-                aiMessage.isStreaming = false;
+              const lastMessage = prev[prev.length - 1];
+              if (lastMessage && lastMessage.type === 'ai') {
+                const newMessages = [...prev];
+                newMessages[newMessages.length - 1] = aiMessage;
+                return newMessages;
               }
-              return [...newMessages];
+              return [...prev, aiMessage];
             });
+
+            // メッセージの永続化を確認
+            setTimeout(() => {
+              loadChatHistory();
+            }, 500);
           }
         }
       , roomData?.ai_type);

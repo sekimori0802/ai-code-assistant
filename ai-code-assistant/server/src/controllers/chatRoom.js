@@ -46,7 +46,7 @@ async function createChatRoom(req, res) {
     const roomId = uuidv4();
     await db.runAsync(
       'INSERT INTO chat_rooms (id, name, created_by, ai_type, llm_model_id) VALUES (?, ?, ?, ?, ?)',
-      [roomId, name, userId, aiType || 'code_generation', llmModelId]
+      [roomId, name, userId, aiType || 'standard', llmModelId]
     );
 
     // 作成者をメンバーとして追加
@@ -384,8 +384,11 @@ async function getMessages(req, res) {
         case 'pc_productivity':
           welcomeMessage = 'PC作業の効率化アシスタントです。時短テクニックやツールの活用法をご案内します。';
           break;
-        default:
+        case 'code_generation':
           welcomeMessage = 'コード生成アシスタントです。プログラミングについてご質問ください。';
+          break;
+        default:
+          welcomeMessage = '標準AIアシスタントです。どのようなご質問でもお気軽にどうぞ。';
       }
 
       const welcomeMessageId = uuidv4();

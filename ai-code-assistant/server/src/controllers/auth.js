@@ -253,9 +253,74 @@ const verifyToken = async (req, res) => {
   }
 };
 
+// ユーザー設定の更新
+const updateSettings = async (req, res) => {
+  const { name, email } = req.body;
+  const userId = req.user.id;
+
+  try {
+    await db.beginTransactionAsync();
+
+    // ユーザーの存在確認
+    const user = await db.getAsync(
+      'SELECT * FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (!user) {
+      await db.rollbackAsync();
+      return res.status(404).json({
+        status: 'error',
+        message: 'ユーザーが見つかりません'
+      });
+    }
+
+    // メールアドレスが変更される場合、重複チェック
+    if (email !== user.email) {
+      const existingUser = await db.getAsync(
+        'SELECT * FROM users WHERE email = ? AND id != ?',
+        [email, userId]
+      );
+
+      if (existingUser) {
+        await db.rollbackAsync();
+        return res.status(400).json({
+          status: 'error',
+          message: 'このメールアドレスは既に使用されています'
+        });
+      }
+    }
+
+    // ユーザー情報の更新
+    await db.runAsync(
+      'UPDATE users SET name = ?, email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [name, email, userId]
+    );
+
+    await db.commitAsync();
+
+    res.json({
+      status: 'success',
+      message: 'ユーザー設定が更新されました',
+      data: {
+        name,
+        email
+      }
+    });
+  } catch (error) {
+    await db.rollbackAsync();
+    console.error('設定更新エラー:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'サーバーエラーが発生しました'
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   resetPassword,
-  verifyToken
+  verifyToken,
+  updateSettings
 };

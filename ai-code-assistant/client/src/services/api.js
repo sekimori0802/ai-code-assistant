@@ -102,6 +102,7 @@ export const auth = {
   },
   resetPassword: (data) => apiClient.post('/api/auth/reset-password', data),
   verifyToken: () => apiClient.get('/api/auth/verify'),
+  updateSettings: (data) => apiClient.put('/api/auth/settings', data),
 };
 
 // チャット関連のAPI

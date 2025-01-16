@@ -15,7 +15,7 @@ const Settings = ({ onClose }) => {
     setSuccess('');
 
     try {
-      const response = await api.put('/auth/settings', { name, email });
+      const response = await api.auth.updateSettings({ name, email });
       if (response.data.status === 'success') {
         setUser({ ...user, name: response.data.data.name, email: response.data.data.email });
         setSuccess('設定を更新しました');

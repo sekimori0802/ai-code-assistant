@@ -10,6 +10,17 @@ const anthropic = new Anthropic();
 
 // AIタイプごとのシステムプロンプト
 const AI_TYPE_PROMPTS = {
+  standard: `あなたは汎用AIアシスタントです。
+以下の方針に従って応答してください：
+
+1. ユーザーの質問や要望に対して、明確で分かりやすい回答を提供します。
+2. 専門的な内容は、一般の方にも理解しやすい言葉で説明します。
+3. 必要に応じて、具体例や参考情報を提供します。
+4. 正確な情報提供を心がけ、不確かな情報は明確にその旨を伝えます。
+5. 丁寧で親しみやすい対話を心がけます。
+
+応答は日本語で行い、状況に応じて適切な形式（箇条書き、表、など）を使用します。`,
+
   code_generation: `あなたはAIプログラミングアシスタントです。
 以下の方針に従って応答してください：
 
@@ -239,7 +250,7 @@ const sendMessage = async (req, res) => {
             model: "gemini-pro",
             generationConfig: {
               temperature: 0.7,
-              maxOutputTokens: 2000,
+              maxOutputTokens: 4000,
             }
           });
 

@@ -105,6 +105,11 @@ async function getChatRooms(req, res) {
               WHERE room_id = r.id 
               ORDER BY created_at DESC 
               LIMIT 1) as last_message,
+             (SELECT created_at
+              FROM chat_room_messages 
+              WHERE room_id = r.id 
+              ORDER BY created_at DESC 
+              LIMIT 1) as last_message_at,
              ls.model as llm_model
       FROM chat_rooms r
       LEFT JOIN chat_room_members m ON r.id = m.room_id
@@ -133,7 +138,8 @@ async function getChatRooms(req, res) {
           last_message: room.last_message,
           created_at: room.created_at,
           updated_at: room.updated_at,
-          llm_model: room.llm_model
+          llm_model: room.llm_model,
+          last_message_at: room.last_message_at
         }))
       }
     });

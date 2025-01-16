@@ -231,7 +231,7 @@ const ChatRoomList = () => {
               <div
                 key={room.id}
                 onClick={() => handleOpenRoom(room.id)}
-                className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors duration-200"
+                className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors duration-200 border border-gray-200 shadow-sm"
               >
                 <div className="flex flex-col">
                   <div className="flex justify-between items-center mb-2">

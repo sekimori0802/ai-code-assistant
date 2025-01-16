@@ -270,9 +270,29 @@ const sendMessage = async (req, res) => {
             throw new Error('Geminiからの応答が空です');
           }
 
-          const text = response.text;
-            // チャンクごとにクライアントに送信（擬似ストリーミング）
-            const chunks = text.match(/.{1,20}/g) || [text];
+          // Gemini APIのレスポンスからテキストを取得
+          console.log('Gemini Raw Response:', response);
+          
+          let text;
+          if (response.candidates && response.candidates[0]?.content?.parts[0]?.text) {
+            text = response.candidates[0].content.parts[0].text;
+          } else if (response.text) {
+            text = response.text;
+          } else {
+            console.error('Unexpected response structure:', response);
+            throw new Error('Geminiからの応答が不正な形式です');
+          }
+          
+          if (typeof text !== 'string') {
+            console.error('Response is not a string:', text);
+            throw new Error('Geminiからの応答が文字列ではありません');
+          }
+          
+          // チャンクごとにクライアントに送信（擬似ストリーミング）
+          const chunks = [];
+          for (let i = 0; i < text.length; i += 20) {
+            chunks.push(text.slice(i, i + 20));
+          }
             let accumulatedText = '';
             for (const chunk of chunks) {
               accumulatedText += chunk;

@@ -247,33 +247,24 @@ const sendMessage = async (req, res) => {
           console.log('Using Gemini Model:', process.env.GEMINI_MODEL_NAME || llmSettings.model);
 
           try {
-            // リクエストの内容を出力
-            const requestContent = {
-              contents: [{
-                role: 'user',
-                parts: [{
-                  text: `${systemPrompt}\n\n${message}`
-                }]
-              }]
-            };
-            console.log('Gemini Request:', JSON.stringify(requestContent, null, 2));
+          const chat = model.startChat({
+            history: [
+              {
+                role: "user",
+                parts: [{ text: systemPrompt }]
+              }
+            ]
+          });
 
-            const result = await model.generateContent(requestContent);
-            
-            // レスポンスの詳細を出力
-            console.log('Gemini Raw Response:', result);
-            
-            if (!result.response) {
-              console.error('Empty Response:', result);
-              throw new Error('Geminiからの応答が空です');
-            }
+          const result = await chat.sendMessage(message);
+          const response = await result.response;
+          
+          if (!response || !response.text) {
+            console.error('Empty Response:', response);
+            throw new Error('Geminiからの応答が空です');
+          }
 
-            const response = await result.response;
-            if (!response.text) {
-              throw new Error('Geminiからの応答にテキストが含まれていません');
-            }
-
-            const text = response.text;
+          const text = response.text;
             // チャンクごとにクライアントに送信（擬似ストリーミング）
             const chunks = text.match(/.{1,20}/g) || [text];
             let accumulatedText = '';
@@ -300,12 +291,20 @@ const sendMessage = async (req, res) => {
           // Claude APIの設定
           const anthropicClient = new Anthropic({ apiKey });
           try {
-            const result = await anthropicClient.messages.create({
-              model: llmSettings.model,
-              max_tokens: 2000,
-              system: systemPrompt,
-              messages: [{ role: 'user', content: message }]
-            });
+          const result = await anthropicClient.messages.create({
+            model: llmSettings.model,
+            max_tokens: 2000,
+            messages: [
+              {
+                role: 'assistant',
+                content: systemPrompt
+              },
+              {
+                role: 'user',
+                content: message
+              }
+            ]
+          });
 
             if (!result.content || result.content.length === 0) {
               throw new Error('Claudeからの応答が空です');

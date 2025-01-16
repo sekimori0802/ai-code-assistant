@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "AI Assistant",
+  "name": "AI Assistant - AIを活用したチャットアプリケーション",
   "icons": [
     {
       "src": "favicon.ico",

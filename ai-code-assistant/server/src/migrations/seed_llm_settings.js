@@ -3,8 +3,8 @@ const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
 
 const dbPath = path.join(__dirname, '../../data/database.sqlite');
-const migrationSQL = fs.readFileSync(
-  path.join(__dirname, 'add_llm_settings.sql'),
+const seedSQL = fs.readFileSync(
+  path.join(__dirname, 'seed_llm_settings.sql'),
   'utf8'
 );
 
@@ -20,14 +20,17 @@ const runAsync = (sql, params = []) => {
   });
 };
 
-// マイグレーションの実行
-async function migrate() {
+// シードデータの投入
+async function seed() {
   try {
     // トランザクション開始
     await runAsync('BEGIN TRANSACTION');
 
+    // 既存のデータを削除
+    await runAsync('DELETE FROM llm_settings');
+
     // SQLの実行
-    const statements = migrationSQL.split(';').filter(stmt => stmt.trim());
+    const statements = seedSQL.split(';').filter(stmt => stmt.trim());
     for (const statement of statements) {
       if (statement.trim()) {
         await runAsync(statement);
@@ -36,11 +39,11 @@ async function migrate() {
 
     // トランザクションのコミット
     await runAsync('COMMIT');
-    console.log('Migration completed successfully');
+    console.log('Seed data inserted successfully');
   } catch (error) {
     // エラー時はロールバック
     await runAsync('ROLLBACK');
-    console.error('Migration failed:', error);
+    console.error('Seed failed:', error);
     throw error;
   } finally {
     // データベース接続のクローズ
@@ -48,5 +51,5 @@ async function migrate() {
   }
 }
 
-// マイグレーションの実行
-migrate().catch(console.error);
+// シードの実行
+seed().catch(console.error);

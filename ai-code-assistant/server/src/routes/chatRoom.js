@@ -11,18 +11,16 @@ const {
   getLLMModels
 } = require('../controllers/chatRoom');
 
-// LLMモデル一覧の取得
-router.get('/llm-models', authenticateToken, getLLMModels);
-
 // トークルーム関連のエンドポイント
-// 特定のルームIDを含むルートを先に配置
-router.get('/:roomId', authenticateToken, getRoom);
-router.post('/:roomId/join', authenticateToken, addMember);
-router.get('/:roomId/messages', authenticateToken, getMessages);
-
-// 一般的なルートを後に配置
+// 一般的なルートを先に配置
+router.get('/llm-models', authenticateToken, getLLMModels);
 router.post('/', authenticateToken, createChatRoom);
 router.get('/', authenticateToken, getChatRooms);
 router.post('/message', authenticateToken, sendMessage);
+
+// 特定のルームIDを含むルートを後に配置
+router.get('/:roomId', authenticateToken, getRoom);
+router.post('/:roomId/join', authenticateToken, addMember);
+router.get('/:roomId/messages', authenticateToken, getMessages);
 
 module.exports = router;

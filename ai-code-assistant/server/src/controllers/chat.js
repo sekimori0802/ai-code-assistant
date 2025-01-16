@@ -318,8 +318,8 @@ const sendMessage = async (req, res) => {
           const anthropicClient = new Anthropic({ apiKey });
           try {
           const result = await anthropicClient.messages.create({
-            model: "claude-3-haiku-20240307",
-            max_tokens: 2000,
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 4000,
             messages: [
               {
                 role: 'assistant',
@@ -379,7 +379,7 @@ const sendMessage = async (req, res) => {
                 { role: 'user', content: message }
               ],
               temperature: 0.7,
-              max_tokens: 2000,
+              max_tokens: 4000,
               stream: true,
             });
 

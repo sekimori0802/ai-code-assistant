@@ -5,7 +5,7 @@ const db = require('../config/database');
 async function getLLMModels(req, res) {
   try {
     const models = await db.allAsync(
-      'SELECT id, model_name FROM llm_settings ORDER BY model_name'
+      'SELECT id, model FROM llm_settings ORDER BY model'
     );
 
     res.json({
@@ -13,7 +13,7 @@ async function getLLMModels(req, res) {
       data: {
         models: models.map(model => ({
           id: model.id,
-          name: model.model_name
+          name: model.model
         }))
       }
     });

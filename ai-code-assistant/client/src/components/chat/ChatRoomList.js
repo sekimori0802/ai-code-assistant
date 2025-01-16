@@ -237,7 +237,7 @@ const ChatRoomList = () => {
                       {room.name}
                     </h3>
                     <span className="text-sm text-gray-500">
-                      {new Date(room.updated_at || room.created_at).toLocaleString()}
+                      {new Date(room.updated_at || room.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

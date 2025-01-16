@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import dotenv from 'dotenv';
 import db from '../config/database.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -11,9 +12,14 @@ async function migrateLLMSettings() {
   try {
     console.log('LLM設定のマイグレーションを開始します...');
 
-    // SQLファイルを読み込む
-    const sqlPath = path.join(__dirname, 'seed_llm_settings.sql');
-    const sql = fs.readFileSync(sqlPath, 'utf8');
+    // .envファイルの読み込み
+    const envPath = path.join(__dirname, '../../.env');
+    let apiKey = 'default-key';
+    
+    if (fs.existsSync(envPath)) {
+      const envConfig = dotenv.parse(fs.readFileSync(envPath));
+      apiKey = envConfig.OPENAI_API_KEY || 'default-key';
+    }
 
     // トランザクションを開始
     await db.beginTransactionAsync();
@@ -22,7 +28,13 @@ async function migrateLLMSettings() {
     await db.runAsync('DELETE FROM llm_settings');
 
     // 新しいデータを挿入
-    await db.runAsync(sql);
+    await db.runAsync(`
+      INSERT INTO llm_settings (id, api_key, model) VALUES 
+      ('550e8400-e29b-41d4-a716-446655440000', ?, 'gpt-3.5-turbo'),
+      ('550e8400-e29b-41d4-a716-446655440001', ?, 'gpt-4'),
+      ('550e8400-e29b-41d4-a716-446655440002', ?, 'claude-2.1'),
+      ('550e8400-e29b-41d4-a716-446655440003', ?, 'gemini-pro')
+    `, [apiKey, apiKey, apiKey, apiKey]);
 
     // トランザクションをコミット
     await db.commitAsync();

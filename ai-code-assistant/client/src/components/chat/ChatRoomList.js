@@ -53,9 +53,7 @@ const ChatRoomList = () => {
       const response = await api.chat.getLLMModels();
       if (response.data.status === 'success') {
         setLLMModels(response.data.data.models);
-        if (response.data.data.models.length > 0) {
-          setSelectedLLMModel(response.data.data.models[0].id);
-        }
+        // 初期選択は行わない
       }
     } catch (err) {
       console.error('LLMモデル一覧の取得エラー:', err);

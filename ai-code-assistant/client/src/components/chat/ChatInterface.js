@@ -258,14 +258,14 @@ const ChatInterface = ({ roomId }) => {
                   {message.type === 'user' ? message.userName || message.userEmail : 'AI Assistant'}
                 </div>
                 <div
-                  className={`rounded-lg p-4 shadow-sm ${
+                  className={`rounded-lg p-4 shadow ${
                     message.type === 'user' && message.userId === user.id
                       ? 'bg-primary-100 text-primary-900 border border-primary-200 ml-auto max-w-2xl'
                     : message.type === 'user'
                       ? 'bg-primary-100 text-primary-900 border border-primary-200 max-w-2xl'
                     : message.type === 'error'
                       ? 'bg-red-100 text-red-700 max-w-2xl'
-                      : 'bg-white text-gray-800 max-w-2xl'
+                      : 'bg-white text-gray-800 border border-gray-100 max-w-2xl'
                   }`}
                 >
                   <MessageContent content={message.content} />

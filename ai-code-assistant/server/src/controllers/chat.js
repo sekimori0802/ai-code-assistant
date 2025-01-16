@@ -236,7 +236,7 @@ const sendMessage = async (req, res) => {
           });
 
           const model = genAI.getGenerativeModel({ 
-            model: process.env.GEMINI_MODEL_NAME || llmSettings.model,
+            model: "gemini-pro",
             generationConfig: {
               temperature: 0.7,
               maxOutputTokens: 2000,
@@ -247,16 +247,22 @@ const sendMessage = async (req, res) => {
           console.log('Using Gemini Model:', process.env.GEMINI_MODEL_NAME || llmSettings.model);
 
           try {
-          const chat = model.startChat({
-            history: [
+          const result = await model.generateContent({
+            contents: [
               {
                 role: "user",
                 parts: [{ text: systemPrompt }]
+              },
+              {
+                role: "model",
+                parts: [{ text: "了解しました。指示に従って応答いたします。" }]
+              },
+              {
+                role: "user",
+                parts: [{ text: message }]
               }
             ]
           });
-
-          const result = await chat.sendMessage(message);
           const response = await result.response;
           
           if (!response || !response.text) {
@@ -294,16 +300,14 @@ const sendMessage = async (req, res) => {
           const result = await anthropicClient.messages.create({
             model: llmSettings.model,
             max_tokens: 2000,
+            system: systemPrompt,
             messages: [
-              {
-                role: 'assistant',
-                content: systemPrompt
-              },
               {
                 role: 'user',
                 content: message
               }
-            ]
+            ],
+            stream: false
           });
 
             if (!result.content || result.content.length === 0) {

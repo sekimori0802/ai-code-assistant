@@ -5,6 +5,13 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 
+// 日本時間のタイムスタンプを生成する関数
+function getCurrentJSTTimestamp() {
+  const now = new Date();
+  now.setHours(now.getHours() + 9); // UTC+9 (JST)
+  return now.toISOString().slice(0, 19).replace('T', ' ');
+}
+
 dotenv.config();
 
 // データベースファイルのパス
@@ -136,8 +143,8 @@ async function initializeTables(db) {
           email TEXT UNIQUE NOT NULL,
           password_hash TEXT NOT NULL,
           is_admin BOOLEAN DEFAULT 0,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          created_at DATETIME DEFAULT (datetime('now', '+9 hours')),
+          updated_at DATETIME DEFAULT (datetime('now', '+9 hours'))
         )
       `);
 
@@ -148,7 +155,7 @@ async function initializeTables(db) {
           user_id TEXT NOT NULL,
           message TEXT NOT NULL,
           response TEXT NOT NULL,
-          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+          timestamp DATETIME DEFAULT (datetime('now', '+9 hours')),
           FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )
       `);
@@ -159,8 +166,8 @@ async function initializeTables(db) {
           id TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           created_by TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          created_at DATETIME DEFAULT (datetime('now', '+9 hours')),
+          updated_at DATETIME DEFAULT (datetime('now', '+9 hours'))
         )
       `);
 
@@ -169,7 +176,7 @@ async function initializeTables(db) {
         CREATE TABLE IF NOT EXISTS chat_room_members (
           room_id TEXT NOT NULL,
           user_id TEXT NOT NULL,
-          joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          joined_at DATETIME DEFAULT (datetime('now', '+9 hours')),
           PRIMARY KEY (room_id, user_id),
           FOREIGN KEY (room_id) REFERENCES chat_rooms (id) ON DELETE CASCADE
         )
@@ -182,7 +189,7 @@ async function initializeTables(db) {
           room_id TEXT NOT NULL,
           user_id TEXT NOT NULL,
           message TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          created_at DATETIME DEFAULT (datetime('now', '+9 hours')),
           FOREIGN KEY (room_id) REFERENCES chat_rooms (id) ON DELETE CASCADE
         )
       `);
@@ -193,8 +200,8 @@ async function initializeTables(db) {
           id TEXT PRIMARY KEY,
           api_key TEXT NOT NULL,
           model TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          created_at DATETIME DEFAULT (datetime('now', '+9 hours')),
+          updated_at DATETIME DEFAULT (datetime('now', '+9 hours'))
         )
       `);
 

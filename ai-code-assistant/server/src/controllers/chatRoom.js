@@ -274,7 +274,7 @@ async function sendMessage(req, res) {
 
     // トークルームの更新日時を更新
     await db.runAsync(
-      'UPDATE chat_rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      'UPDATE chat_rooms SET updated_at = datetime("now", "+9 hours") WHERE id = ?',
       [roomId]
     );
 
@@ -340,7 +340,7 @@ async function getMessages(req, res) {
     // 未参加の場合は自動的に参加させる
     if (!membership) {
       await db.runAsync(
-        'INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+        'INSERT INTO chat_room_members (room_id, user_id, joined_at) VALUES (?, ?, datetime("now", "+9 hours"))',
         [roomId, userId]
       );
       membership = { room_id: roomId, user_id: userId }; // 仮のメンバーシップデータ

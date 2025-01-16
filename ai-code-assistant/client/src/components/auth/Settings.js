@@ -16,8 +16,10 @@ const Settings = ({ onClose }) => {
 
     try {
       const response = await api.put('/auth/settings', { name, email });
-      setUser({ ...user, name: response.data.name, email: response.data.email });
-      setSuccess('設定を更新しました');
+      if (response.data.status === 'success') {
+        setUser({ ...user, name: response.data.data.name, email: response.data.data.email });
+        setSuccess('設定を更新しました');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'エラーが発生しました');
     }

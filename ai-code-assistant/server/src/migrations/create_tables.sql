@@ -1,3 +1,14 @@
+-- ユーザーテーブル
+CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(36) PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    name VARCHAR(255),
+    password_hash VARCHAR(255) NOT NULL,
+    is_admin BOOLEAN DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- チャットルームテーブル
 CREATE TABLE IF NOT EXISTS chat_rooms (
     id VARCHAR(36) PRIMARY KEY,

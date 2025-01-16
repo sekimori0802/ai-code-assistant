@@ -1,3 +1,12 @@
+-- LLMモデル設定テーブル
+CREATE TABLE IF NOT EXISTS llm_settings (
+    id VARCHAR(36) PRIMARY KEY,
+    api_key VARCHAR(255) NOT NULL,
+    model VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- ユーザーテーブル
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,
@@ -14,8 +23,11 @@ CREATE TABLE IF NOT EXISTS chat_rooms (
     id VARCHAR(36) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     created_by VARCHAR(36) NOT NULL,
+    ai_type VARCHAR(50) DEFAULT 'standard',
+    llm_model_id VARCHAR(36),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (llm_model_id) REFERENCES llm_settings(id)
 );
 
 -- チャットルームメンバーテーブル

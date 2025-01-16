@@ -254,6 +254,9 @@ const ChatRoomList = () => {
                           <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                             参加者: {room.member_count}人
                           </span>
+                          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            {room.llm_model}
+                          </span>
                         </div>
                         <button
                           onClick={(e) => {

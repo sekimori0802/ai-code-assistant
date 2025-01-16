@@ -116,7 +116,7 @@ export const chat = {
         return;
       }
 
-      const url = new URL(`${API_URL}/api/chat/send`);
+      const url = new URL(`${API_URL}/chat/send`);
       url.searchParams.append('message', message);
       url.searchParams.append('roomId', roomId);
       url.searchParams.append('token', token);
@@ -222,27 +222,27 @@ export const chat = {
       };
     });
   },
-  getHistory: (roomId) => apiClient.get(`/api/chat/history?roomId=${roomId}`),
-  deleteMessage: (id, roomId) => apiClient.delete(`/api/chat/history/${id}?roomId=${roomId}`),
+  getHistory: (roomId) => apiClient.get(`/chat/history?roomId=${roomId}`),
+  deleteMessage: (id, roomId) => apiClient.delete(`/chat/history/${id}?roomId=${roomId}`),
   
   // チャットルーム管理
-  createRoom: (name, aiType, llmModelId) => apiClient.post('/api/chat-rooms', { name, aiType, llmModelId }),
-  getRooms: () => apiClient.get('/api/chat-rooms'),
-  getLLMModels: () => apiClient.get('/api/chat-rooms/llm-models'),
-  getRoom: (roomId) => apiClient.get(`/api/chat-rooms/${roomId}`),
-  joinRoom: (roomId) => apiClient.post(`/api/chat-rooms/${roomId}/join`),
-  updateRoom: (roomId, data) => apiClient.put(`/api/chat-rooms/${roomId}`, data),
-  deleteRoom: (roomId) => apiClient.delete(`/api/chat-rooms/${roomId}`),
+  createRoom: (name, aiType, llmModelId) => apiClient.post('/chat-rooms', { name, aiType, llmModelId }),
+  getRooms: () => apiClient.get('/chat-rooms'),
+  getLLMModels: () => apiClient.get('/chat-rooms/llm-models'),
+  getRoom: (roomId) => apiClient.get(`/chat-rooms/${roomId}`),
+  joinRoom: (roomId) => apiClient.post(`/chat-rooms/${roomId}/join`),
+  updateRoom: (roomId, data) => apiClient.put(`/chat-rooms/${roomId}`, data),
+  deleteRoom: (roomId) => apiClient.delete(`/chat-rooms/${roomId}`),
 };
 
 // 管理者用API
 export const admin = {
-  getUsers: () => apiClient.get('/api/admin/users'),
-  deleteUser: (id) => apiClient.delete(`/api/admin/users/${id}`),
+  getUsers: () => apiClient.get('/admin/users'),
+  deleteUser: (id) => apiClient.delete(`/admin/users/${id}`),
   resetUserPassword: (id, newPassword) =>
-    apiClient.post(`/api/admin/reset-password/${id}`, { newPassword }),
-  updateLLMSettings: (settings) => apiClient.post('/api/admin/llm-settings', settings),
-  getChatLogs: () => apiClient.get('/api/admin/chat-logs'),
+    apiClient.post(`/admin/reset-password/${id}`, { newPassword }),
+  updateLLMSettings: (settings) => apiClient.post('/admin/llm-settings', settings),
+  getChatLogs: () => apiClient.get('/admin/chat-logs'),
 };
 
 // APIクライアントのエクスポート

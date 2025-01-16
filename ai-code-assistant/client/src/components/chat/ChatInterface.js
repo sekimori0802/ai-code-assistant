@@ -228,7 +228,12 @@ const ChatInterface = ({ roomId }) => {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] bg-gray-50">
+      <div className="flex flex-col h-[calc(100vh-4rem)] bg-gray-50">
+      <div className="bg-white shadow-sm p-2 flex justify-between items-center">
+        <div className="text-sm text-gray-600">
+          {roomData?.llm_model && `AIモデル: ${roomData.llm_model}`}
+        </div>
+      </div>
       <div className="flex-1 overflow-y-auto p-4">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg relative mb-4">

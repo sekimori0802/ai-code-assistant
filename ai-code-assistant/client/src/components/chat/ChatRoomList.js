@@ -172,6 +172,7 @@ const ChatRoomList = () => {
                 required
               >
                 <option value="">AIタイプを選択</option>
+                <option value="standard">標準</option>
                 <option value="code_generation">コード生成</option>
                 <option value="blog_writing">ブログ記事作成</option>
                 <option value="english_conversation">英会話練習</option>
@@ -266,6 +267,7 @@ const ChatRoomList = () => {
                       </button>
                     </div>
                     <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded min-w-[120px] text-center">
+                      {room.ai_type === 'standard' && '標準'}
                       {room.ai_type === 'code_generation' && 'コード生成'}
                       {room.ai_type === 'blog_writing' && 'ブログ記事作成'}
                       {room.ai_type === 'english_conversation' && '英会話練習'}

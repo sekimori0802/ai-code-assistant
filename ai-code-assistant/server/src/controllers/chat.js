@@ -318,24 +318,35 @@ const sendMessage = async (req, res) => {
           const anthropicClient = new Anthropic({ apiKey });
           try {
           const result = await anthropicClient.messages.create({
-            model: llmSettings.model,
+            model: "claude-3-haiku-20240307",
             max_tokens: 2000,
-            system: systemPrompt,
             messages: [
+              {
+                role: 'assistant',
+                content: systemPrompt
+              },
               {
                 role: 'user',
                 content: message
               }
-            ],
-            stream: false
+            ]
           });
 
-            if (!result.content || result.content.length === 0) {
+            console.log('Claude Raw Response:', result);
+
+            if (!result || !result.content) {
               throw new Error('Claudeからの応答が空です');
             }
 
+            // レスポンスからテキストを取得
+            const text = result.content[0]?.text || result.content;
+            
+            if (typeof text !== 'string') {
+              console.error('Invalid text response:', text);
+              throw new Error('Claudeからの応答が文字列ではありません');
+            }
+
             // チャンクごとにクライアントに送信（擬似ストリーミング）
-            const text = result.content[0].text;
             const chunks = text.match(/.{1,20}/g) || [text];
             let accumulatedText = '';
             for (const chunk of chunks) {

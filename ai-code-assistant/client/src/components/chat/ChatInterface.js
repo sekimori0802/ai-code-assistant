@@ -278,7 +278,7 @@ const ChatInterface = ({ roomId }) => {
                         : 'text-gray-500'
                     }`}
                   >
-                    {new Date(message.timestamp).toLocaleString()}
+                    {new Date(message.timestamp).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
                   </div>
                 </div>
               </div>

@@ -109,7 +109,7 @@ const ChatRoom = () => {
                 </div>
                 <div className="break-words">{message.message}</div>
                 <div className="text-xs text-gray-500 mt-1">
-                  {new Date(message.created_at).toLocaleString()}
+                  {new Date(message.created_at).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
                 </div>
               </div>
             </div>

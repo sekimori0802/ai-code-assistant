@@ -36,7 +36,7 @@ const Layout = ({ children }) => {
             <div className="flex items-center">
               {user ? (
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-700">{user.email}</span>
+                  <span className="text-sm text-gray-700">{user.name}</span>
                   <button
                     onClick={handleLogout}
                     className="btn btn-secondary text-sm"

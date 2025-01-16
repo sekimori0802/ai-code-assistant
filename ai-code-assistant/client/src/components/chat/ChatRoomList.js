@@ -113,16 +113,16 @@ const ChatRoomList = () => {
   }
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-4">AIチャット</h2>
-        <p className="text-gray-600 mb-4">
-          新しいチャットを開始するか、既存のチャットを続けることができます。
-        </p>
+    <div className="flex flex-col h-full">
+      <div className="bg-white shadow-sm p-4 sticky top-0 z-10">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl font-bold mb-4">AIチャット</h2>
+          <p className="text-gray-600 mb-4">
+            新しいチャットを開始するか、既存のチャットを続けることができます。
+          </p>
 
-        {/* チャットルーム作成フォーム */}
-        {/* ルームID検索フォーム */}
-        <div className="mb-6">
+          {/* ルームID検索フォーム */}
+          <div className="mb-4">
           <div className="flex gap-2">
             <input
               type="text"
@@ -155,8 +155,8 @@ const ChatRoomList = () => {
           )}
         </div>
 
-        {/* チャットルーム作成フォーム */}
-        <form onSubmit={handleCreateRoom} className="mb-6 space-y-4">
+          {/* チャットルーム作成フォーム */}
+          <form onSubmit={handleCreateRoom} className="space-y-4">
           <div className="flex gap-2">
             <input
               type="text"
@@ -210,8 +210,18 @@ const ChatRoomList = () => {
           </div>
         )}
 
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 max-w-4xl mx-auto">
+            {error}
+          </div>
+        )}
+
         {/* チャットルーム一覧 */}
-        <div className="space-y-3">
+        <div className="space-y-3 max-w-4xl mx-auto">
           {rooms.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               チャット履歴がありません
@@ -233,13 +243,18 @@ const ChatRoomList = () => {
                         <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
                           ID: {room.id}
                         </span>
-                        <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                          {room.ai_type === 'code_generation' && 'コード生成'}
-                          {room.ai_type === 'blog_writing' && 'ブログ記事作成'}
-                          {room.ai_type === 'english_conversation' && '英会話練習'}
-                          {room.ai_type === 'video_editing' && '動画編集'}
-                          {room.ai_type === 'pc_productivity' && 'PC作業効率化'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            {room.ai_type === 'code_generation' && 'コード生成'}
+                            {room.ai_type === 'blog_writing' && 'ブログ記事作成'}
+                            {room.ai_type === 'english_conversation' && '英会話練習'}
+                            {room.ai_type === 'video_editing' && '動画編集'}
+                            {room.ai_type === 'pc_productivity' && 'PC作業効率化'}
+                          </span>
+                          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            参加者: {room.member_count}人
+                          </span>
+                        </div>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();

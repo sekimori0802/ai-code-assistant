@@ -231,64 +231,62 @@ const ChatRoomList = () => {
               <div
                 key={room.id}
                 onClick={() => handleOpenRoom(room.id)}
-                className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors duration-200"
+                className="bg-gray-50 p-4 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors duration-200"
               >
-                <div className="flex justify-between items-center">
-                  <div>
+                <div className="flex flex-col">
+                  <div className="flex justify-between items-center mb-2">
                     <h3 className="text-lg font-medium text-gray-900">
                       {room.name}
                     </h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                          ID: {room.id}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                            {room.ai_type === 'code_generation' && 'コード生成'}
-                            {room.ai_type === 'blog_writing' && 'ブログ記事作成'}
-                            {room.ai_type === 'english_conversation' && '英会話練習'}
-                            {room.ai_type === 'video_editing' && '動画編集'}
-                            {room.ai_type === 'pc_productivity' && 'PC作業効率化'}
-                          </span>
-                          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                            参加者: {room.member_count}人
-                          </span>
-                          <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                            {room.llm_model}
-                          </span>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(room.id);
-                            const toast = document.createElement('div');
-                            toast.className = 'fixed bottom-4 right-4 bg-black bg-opacity-75 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-out';
-                            toast.textContent = 'ルームIDをコピーしました';
-                            document.body.appendChild(toast);
-                            setTimeout(() => {
-                              toast.remove();
-                            }, 2000);
-                          }}
-                          className="text-sm text-blue-500 hover:text-blue-700 flex items-center gap-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                          </svg>
-                          コピー
-                        </button>
-                      </div>
-                    </div>
+                    <span className="text-sm text-gray-500">
+                      {new Date(room.updated_at || room.created_at).toLocaleString()}
+                    </span>
                   </div>
-                  <span className="text-sm text-gray-500">
-                    {new Date(room.updated_at || room.created_at).toLocaleString()}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center">
+                      <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded-l">
+                        ルームID: {room.id}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(room.id);
+                          const toast = document.createElement('div');
+                          toast.className = 'fixed bottom-4 right-4 bg-black bg-opacity-75 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in-out';
+                          toast.textContent = 'ルームIDをコピーしました';
+                          document.body.appendChild(toast);
+                          setTimeout(() => {
+                            toast.remove();
+                          }, 2000);
+                        }}
+                        className="text-sm text-blue-500 hover:text-blue-700 flex items-center gap-1 bg-white px-2 py-1 rounded-r border-l border-gray-200"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                        </svg>
+                        コピー
+                      </button>
+                    </div>
+                    <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded min-w-[120px] text-center">
+                      {room.ai_type === 'code_generation' && 'コード生成'}
+                      {room.ai_type === 'blog_writing' && 'ブログ記事作成'}
+                      {room.ai_type === 'english_conversation' && '英会話練習'}
+                      {room.ai_type === 'video_editing' && '動画編集'}
+                      {room.ai_type === 'pc_productivity' && 'PC作業効率化'}
+                    </span>
+                    <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded min-w-[80px] text-center">
+                      参加者: {room.member_count}人
+                    </span>
+                    <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded min-w-[200px] text-center">
+                      {room.llm_model}
+                    </span>
+                  </div>
+                  {room.last_message && (
+                    <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                      {room.last_message}
+                    </p>
+                  )}
                 </div>
-                {room.last_message && (
-                  <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                    {room.last_message}
-                  </p>
-                )}
               </div>
             ))
           )}

@@ -68,7 +68,7 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       // トークン検証エンドポイントの場合は直接ログアウト
-      if (originalRequest.url === '/auth/verify') {
+      if (originalRequest.url === '/api/auth/verify') {
         console.log('トークン検証に失敗、ログアウト処理を実行');
         localStorage.removeItem('token');
         window.location.href = '/login';
@@ -77,7 +77,7 @@ apiClient.interceptors.response.use(
 
       try {
         // トークンの再検証を試みる
-        await apiClient.get('/auth/verify');
+        await apiClient.get('/api/auth/verify');
         return apiClient(originalRequest);
       } catch (verifyError) {
         console.log('トークン再検証に失敗、ログアウト処理を実行');
@@ -93,16 +93,16 @@ apiClient.interceptors.response.use(
 
 // 認証関連のAPI
 export const auth = {
-  register: (data) => apiClient.post('/auth/register', data),
-  login: (data) => apiClient.post('/auth/login', data),
+  register: (data) => apiClient.post('/api/auth/register', data),
+  login: (data) => apiClient.post('/api/auth/login', data),
   logout: () => {
     console.log('ログアウト処理を実行');
     localStorage.removeItem('token');
     return Promise.resolve();
   },
-  resetPassword: (data) => apiClient.post('/auth/reset-password', data),
-  verifyToken: () => apiClient.get('/auth/verify'),
-  updateSettings: (data) => apiClient.put('/auth/settings', data),
+  resetPassword: (data) => apiClient.post('/api/auth/reset-password', data),
+  verifyToken: () => apiClient.get('/api/auth/verify'),
+  updateSettings: (data) => apiClient.put('/api/auth/settings', data),
 };
 
 // チャット関連のAPI
@@ -116,7 +116,7 @@ export const chat = {
         return;
       }
 
-      const url = new URL(`${API_URL}/chat/send`);
+      const url = new URL(`${API_URL}/api/chat/send`);
       url.searchParams.append('message', message);
       url.searchParams.append('roomId', roomId);
       url.searchParams.append('token', token);
@@ -222,27 +222,27 @@ export const chat = {
       };
     });
   },
-  getHistory: (roomId) => apiClient.get(`/chat/history?roomId=${roomId}`),
-  deleteMessage: (id, roomId) => apiClient.delete(`/chat/history/${id}?roomId=${roomId}`),
+  getHistory: (roomId) => apiClient.get(`/api/chat/history?roomId=${roomId}`),
+  deleteMessage: (id, roomId) => apiClient.delete(`/api/chat/history/${id}?roomId=${roomId}`),
   
   // チャットルーム管理
-  createRoom: (name, aiType, llmModelId) => apiClient.post('/chat-rooms', { name, aiType, llmModelId }),
-  getRooms: () => apiClient.get('/chat-rooms'),
-  getLLMModels: () => apiClient.get('/chat-rooms/llm-models'),
-  getRoom: (roomId) => apiClient.get(`/chat-rooms/${roomId}`),
-  joinRoom: (roomId) => apiClient.post(`/chat-rooms/${roomId}/join`),
-  updateRoom: (roomId, data) => apiClient.put(`/chat-rooms/${roomId}`, data),
-  deleteRoom: (roomId) => apiClient.delete(`/chat-rooms/${roomId}`),
+  createRoom: (name, aiType, llmModelId) => apiClient.post('/api/chat-rooms', { name, aiType, llmModelId }),
+  getRooms: () => apiClient.get('/api/chat-rooms'),
+  getLLMModels: () => apiClient.get('/api/chat-rooms/llm-models'),
+  getRoom: (roomId) => apiClient.get(`/api/chat-rooms/${roomId}`),
+  joinRoom: (roomId) => apiClient.post(`/api/chat-rooms/${roomId}/join`),
+  updateRoom: (roomId, data) => apiClient.put(`/api/chat-rooms/${roomId}`, data),
+  deleteRoom: (roomId) => apiClient.delete(`/api/chat-rooms/${roomId}`),
 };
 
 // 管理者用API
 export const admin = {
-  getUsers: () => apiClient.get('/admin/users'),
-  deleteUser: (id) => apiClient.delete(`/admin/users/${id}`),
+  getUsers: () => apiClient.get('/api/admin/users'),
+  deleteUser: (id) => apiClient.delete(`/api/admin/users/${id}`),
   resetUserPassword: (id, newPassword) =>
-    apiClient.post(`/admin/reset-password/${id}`, { newPassword }),
-  updateLLMSettings: (settings) => apiClient.post('/admin/llm-settings', settings),
-  getChatLogs: () => apiClient.get('/admin/chat-logs'),
+    apiClient.post(`/api/admin/reset-password/${id}`, { newPassword }),
+  updateLLMSettings: (settings) => apiClient.post('/api/admin/llm-settings', settings),
+  getChatLogs: () => apiClient.get('/api/admin/chat-logs'),
 };
 
 // APIクライアントのエクスポート

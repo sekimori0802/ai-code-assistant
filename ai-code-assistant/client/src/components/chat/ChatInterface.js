@@ -245,7 +245,7 @@ const ChatInterface = ({ roomId }) => {
             <div
               key={`${message.type}-${index}`}
               className={`flex ${
-                message.type === 'user' ? 'justify-end' : 'justify-start'
+                message.type === 'user' && message.userId === user.id ? 'justify-end' : 'justify-start'
               }`}
             >
               <div className="flex flex-col">
@@ -254,9 +254,11 @@ const ChatInterface = ({ roomId }) => {
                 </div>
                 <div
                   className={`rounded-lg p-4 shadow-sm ${
-                    message.type === 'user'
+                    message.type === 'user' && message.userId === user.id
                       ? 'bg-primary-100 text-primary-900 border border-primary-200 ml-auto max-w-2xl'
-                      : message.type === 'error'
+                    : message.type === 'user'
+                      ? 'bg-primary-100 text-primary-900 border border-primary-200 max-w-2xl'
+                    : message.type === 'error'
                       ? 'bg-red-100 text-red-700 max-w-2xl'
                       : 'bg-white text-gray-800 max-w-2xl'
                   }`}

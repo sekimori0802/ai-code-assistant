@@ -68,7 +68,7 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       // トークン検証エンドポイントの場合は直接ログアウト
-      if (originalRequest.url === '/api/auth/verify') {
+      if (originalRequest.url === '/auth/verify') {
         console.log('トークン検証に失敗、ログアウト処理を実行');
         localStorage.removeItem('token');
         window.location.href = '/login';
@@ -77,7 +77,7 @@ apiClient.interceptors.response.use(
 
       try {
         // トークンの再検証を試みる
-        await apiClient.get('/api/auth/verify');
+        await apiClient.get('/auth/verify');
         return apiClient(originalRequest);
       } catch (verifyError) {
         console.log('トークン再検証に失敗、ログアウト処理を実行');
@@ -93,16 +93,16 @@ apiClient.interceptors.response.use(
 
 // 認証関連のAPI
 export const auth = {
-  register: (data) => apiClient.post('/api/auth/register', data),
-  login: (data) => apiClient.post('/api/auth/login', data),
+  register: (data) => apiClient.post('/auth/register', data),
+  login: (data) => apiClient.post('/auth/login', data),
   logout: () => {
     console.log('ログアウト処理を実行');
     localStorage.removeItem('token');
     return Promise.resolve();
   },
-  resetPassword: (data) => apiClient.post('/api/auth/reset-password', data),
-  verifyToken: () => apiClient.get('/api/auth/verify'),
-  updateSettings: (data) => apiClient.put('/api/auth/settings', data),
+  resetPassword: (data) => apiClient.post('/auth/reset-password', data),
+  verifyToken: () => apiClient.get('/auth/verify'),
+  updateSettings: (data) => apiClient.put('/auth/settings', data),
 };
 
 // チャット関連のAPI

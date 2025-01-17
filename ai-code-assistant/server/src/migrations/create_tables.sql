@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- システムユーザーの追加
+INSERT INTO users (id, email, name, password_hash, is_admin) VALUES 
+('system', 'system@example.com', 'System', 'system', 1);
+
 -- チャットルームテーブル
 CREATE TABLE IF NOT EXISTS chat_rooms (
     id VARCHAR(36) PRIMARY KEY,

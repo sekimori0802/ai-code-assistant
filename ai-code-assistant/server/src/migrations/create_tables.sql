@@ -7,6 +7,13 @@ CREATE TABLE IF NOT EXISTS llm_settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 初期データの挿入
+INSERT INTO llm_settings (id, api_key, model) VALUES 
+('550e8400-e29b-41d4-a716-446655440000', 'default-key', 'gpt-4o'),
+('550e8400-e29b-41d4-a716-446655440001', 'default-key', 'gpt-4o-mini'),
+('550e8400-e29b-41d4-a716-446655440002', 'default-key', 'claude-3-5-sonnet-20241022'),
+('550e8400-e29b-41d4-a716-446655440003', 'default-key', 'gemini-pro');
+
 -- ユーザーテーブル
 CREATE TABLE IF NOT EXISTS users (
     id VARCHAR(36) PRIMARY KEY,

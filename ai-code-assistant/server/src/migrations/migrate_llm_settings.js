@@ -30,9 +30,9 @@ async function migrateLLMSettings() {
     // 新しいデータを挿入
     await db.runAsync(`
       INSERT INTO llm_settings (id, api_key, model) VALUES 
-      ('550e8400-e29b-41d4-a716-446655440000', ?, 'gpt-3.5-turbo'),
-      ('550e8400-e29b-41d4-a716-446655440001', ?, 'gpt-4'),
-      ('550e8400-e29b-41d4-a716-446655440002', ?, 'claude-2.1'),
+      ('550e8400-e29b-41d4-a716-446655440000', ?, 'gpt-4o'),
+      ('550e8400-e29b-41d4-a716-446655440001', ?, 'gpt-4o-mini'),
+      ('550e8400-e29b-41d4-a716-446655440002', ?, 'claude-3-5-sonnet-20241022'),
       ('550e8400-e29b-41d4-a716-446655440003', ?, 'gemini-pro')
     `, [apiKey, apiKey, apiKey, apiKey]);
 

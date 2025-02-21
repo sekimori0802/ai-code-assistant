@@ -1,52 +1,51 @@
-const fs = require('fs');
-const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import dotenv from 'dotenv';
+import db from '../config/database.js';
 
-const dbPath = path.join(__dirname, '../../data/database.sqlite');
-const migrationSQL = fs.readFileSync(
-  path.join(__dirname, 'add_llm_settings.sql'),
-  'utf8'
-);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-const db = new sqlite3.Database(dbPath);
-
-// Promiseラッパー関数
-const runAsync = (sql, params = []) => {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
-      if (err) reject(err);
-      else resolve(this);
-    });
-  });
-};
-
-// マイグレーションの実行
-async function migrate() {
+async function migrateLLMSettings() {
   try {
-    // トランザクション開始
-    await runAsync('BEGIN TRANSACTION');
+    console.log('LLM設定のマイグレーションを開始します...');
 
-    // SQLの実行
-    const statements = migrationSQL.split(';').filter(stmt => stmt.trim());
-    for (const statement of statements) {
-      if (statement.trim()) {
-        await runAsync(statement);
-      }
+    // .envファイルの読み込み
+    const envPath = path.join(__dirname, '../../.env');
+    let apiKey = 'default-key';
+    
+    if (fs.existsSync(envPath)) {
+      const envConfig = dotenv.parse(fs.readFileSync(envPath));
+      apiKey = envConfig.OPENAI_API_KEY || 'default-key';
     }
 
-    // トランザクションのコミット
-    await runAsync('COMMIT');
-    console.log('Migration completed successfully');
+    // トランザクションを開始
+    await db.beginTransactionAsync();
+
+    // 既存のデータを削除
+    await db.runAsync('DELETE FROM llm_settings');
+
+    // 新しいデータを挿入
+    await db.runAsync(`
+      INSERT INTO llm_settings (id, api_key, model) VALUES 
+      ('550e8400-e29b-41d4-a716-446655440000', ?, 'gpt-4o'),
+      ('550e8400-e29b-41d4-a716-446655440001', ?, 'gpt-4o-mini'),
+      ('550e8400-e29b-41d4-a716-446655440002', ?, 'claude-3-5-sonnet-20241022'),
+      ('550e8400-e29b-41d4-a716-446655440003', ?, 'gemini-pro')
+    `, [apiKey, apiKey, apiKey, apiKey]);
+
+    // トランザクションをコミット
+    await db.commitAsync();
+
+    console.log('LLM設定のマイグレーションが完了しました');
   } catch (error) {
-    // エラー時はロールバック
-    await runAsync('ROLLBACK');
-    console.error('Migration failed:', error);
+    // エラーが発生した場合はロールバック
+    await db.rollbackAsync();
+    console.error('LLM設定のマイグレーションに失敗:', error);
     throw error;
-  } finally {
-    // データベース接続のクローズ
-    db.close();
   }
 }
 
-// マイグレーションの実行
-migrate().catch(console.error);
+migrateLLMSettings().catch(console.error);

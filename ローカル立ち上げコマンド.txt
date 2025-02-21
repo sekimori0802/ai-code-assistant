@@ -1,39 +1,12 @@
-# AIコードアシスタント 起動手順
+# 同人誌管理アプリケーション ローカル立ち上げ手順
 
-## 1. サーバーの起動
-cd ai-code-assistant/server; npm install; npm start
+## 初回セットアップ時
+cd C:\doujin\doujin-management
+npm install
 
-## 2. クライアントの起動（新しいターミナルで実行）
-cd ai-code-assistant/client; npm install; npm start
+## アプリケーション起動
+cd C:\doujin\doujin-management
+npm start
 
-## 注意事項
-- サーバーは5000番ポートで起動します
-- クライアントは3000番ポートで起動します
-- 必ずサーバーを先に起動してからクライアントを起動してください
-- 両方のターミナルは起動したまま維持してください
-
-## アプリケーションの再起動手順
-1. 既存のターミナルで Ctrl+C を押して、サーバーとクライアントを停止
-2. サーバーの再起動:
-   ```
-   cd ai-code-assistant/server
-   npm start
-   ```
-3. 新しいターミナルでクライアントの再起動:
-   ```
-   cd ai-code-assistant/client
-   npm start
-   ```
-
-## 環境変数の確認
-サーバー側の.envファイルに以下の設定があることを確認：
-- NODE_ENV=development
-- PORT=5000
-- JWT_SECRET=your-secret-key-here
-- ADMIN_EMAIL=t.s.0514.0952@gmail.com
-- ADMIN_PASSWORD=admin123
-
-クライアント側の.envファイルに以下の設定があることを確認：
-- REACT_APP_API_URL=http://localhost:5000
-- REACT_APP_DEFAULT_EMAIL=t.s.0514.0952@gmail.com
-- REACT_APP_DEFAULT_PASSWORD=admin123
+※ アプリケーションは自動的にブラウザで開きます（通常はhttp://localhost:3000）
+※ 終了する場合は、ターミナルでCtrl+Cを押してください。

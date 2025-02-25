@@ -1,4 +1,4 @@
-# AI Code Assistant
+# AI Assistant
 
 AIを活用したアシスタントアプリケーション。複数のAIプロバイダー（OpenAI, Google, Anthropic）に対応し、効率的な業務をサポートします。
 
